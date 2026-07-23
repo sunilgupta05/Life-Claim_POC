@@ -181,6 +181,9 @@ app.use(
 );
 app.use(helmet.frameguard({ action: 'sameorigin' }));
 app.use(helmet.noSniff());
+// VAPT: force HTTPS on repeat visits (no-op over plain HTTP, harmless in local dev) + limit referrer leakage.
+app.use(helmet.hsts({ maxAge: 15552000, includeSubDomains: true }));
+app.use(helmet.referrerPolicy({ policy: 'strict-origin-when-cross-origin' }));
  
 // 🛑 Prevent browser caching for sensitive API data (Back/Refresh Attack Protection)
 app.use((req, res, next) => {

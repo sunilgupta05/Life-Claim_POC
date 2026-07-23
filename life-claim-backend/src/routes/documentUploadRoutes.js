@@ -49,7 +49,7 @@ const {
     authorizeClaimBodyAccess,
     authorizePreviewNodeAccess,
 } = require('../middleware/claimAccessMiddleware');
-const exposeErrorDetails = process.env.NODE_ENV !== 'production';
+const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
 
 const router = express.Router();
 

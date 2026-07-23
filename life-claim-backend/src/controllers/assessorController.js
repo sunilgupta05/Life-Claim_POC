@@ -494,7 +494,7 @@ const getCalculateAmount = async (req, res) => {
     console.error('assessorController.js >> getCalculateAmount >> error :>', error);
     res.status(503).json({
       message: 'Service unavailable',
-      ...(process.env.NODE_ENV !== 'production'
+      ...(process.env.EXPOSE_ERROR_DETAIL === 'true'
         ? {
             detail: error.message || 'Failed to connect to transaction service',
             code: error.code || undefined,

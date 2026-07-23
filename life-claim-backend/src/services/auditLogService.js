@@ -16,6 +16,27 @@ const isTrackedUser = (username) => {
   return TRACKED_USERS.has(username.trim().toLowerCase());
 };
 
+/** Most recent LOGIN_AT for this user, captured BEFORE the current login is recorded. */
+const getLastLoginBefore = async (username) => {
+  if (!isTrackedUser(username)) return null;
+
+  const query = `
+    SELECT LOGIN_AT
+    FROM claims_poc.user_login_audit
+    WHERE USERNAME = ?
+    ORDER BY LOGIN_AT DESC
+    LIMIT 1
+  `;
+
+  try {
+    const [rows] = await db.execute(query, [username]);
+    return rows?.[0]?.LOGIN_AT || null;
+  } catch (error) {
+    logger.error(`Audit getLastLoginBefore error for ${username}: ${error.message}`);
+    return null;
+  }
+};
+
 const recordLogin = async ({ username, ipAddress, userAgent, roles }) => {
   if (!isTrackedUser(username)) return;
 
@@ -151,6 +172,7 @@ const closeAllStaleSessions = async () => {
 
 module.exports = {
   isTrackedUser,
+  getLastLoginBefore,
   recordLogin,
   recordLogout,
   hasActiveSession,

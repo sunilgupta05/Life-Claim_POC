@@ -4,7 +4,7 @@ const authService = require('../services/authService');
 const axios = require('axios');
 const qs = require('qs');
 const db = require('../config/dbConfig');
-const { recordLogin, recordLogout } = require('../services/auditLogService');
+const { recordLogin, recordLogout, getLastLoginBefore } = require('../services/auditLogService');
 const { authTokenLimiter, logoutAuditLimiter } = require('../middleware/rateLimiters');
 const userDao = require('../dataAccess/userDao');
 const keycloakLoginLockout = require('../services/keycloakLoginLockout');
@@ -162,8 +162,11 @@ router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, asyn
       }
     }
 
+    let lastLoginAt = null;
     if (username) {
       keycloakLoginLockout.clearFailures(loginUsername || username);
+      // Capture the previous login timestamp before recording this one.
+      lastLoginAt = await getLastLoginBefore(username);
       await recordLogin({
         username,
         ipAddress: req.ip,
@@ -187,6 +190,9 @@ router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, asyn
             exp: payload?.exp || null,
           }
         : null);
+    if (userProfile) {
+      userProfile.last_login_at = lastLoginAt;
+    }
     res.json({
       expires_in: response.data.expires_in,
       token_type: response.data.token_type,
@@ -233,7 +239,7 @@ router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, asyn
       error: 'keycloak_unreachable',
       message: 'Login service is temporarily unavailable. Please try again later.',
     };
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.EXPOSE_ERROR_DETAIL === 'true') {
       body.detail = msg;
       body.code = code || undefined;
       body.attemptedUrl = tokenEndpoint;

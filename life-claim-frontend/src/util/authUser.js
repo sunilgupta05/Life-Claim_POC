@@ -19,7 +19,9 @@ export function buildUserFromProfile(profile) {
       (profile.given_name?.[0] || username[0] || '').toUpperCase() +
       (profile.family_name?.[0] || ''),
     tokenExp: profile.exp || null,
-    loginTime: new Date().toISOString(),
+    // Timestamp of the PREVIOUS login (server-provided), not this current session's start —
+    // lets the user notice a login they didn't make. Null on first-ever login.
+    lastLoginAt: profile.last_login_at || null,
   }
 }
 

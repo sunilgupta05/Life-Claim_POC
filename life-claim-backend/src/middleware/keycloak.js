@@ -9,9 +9,36 @@ let keycloak;
 const SESSION_IDLE_TIMEOUT_MINUTES = Number(process.env.SESSION_IDLE_TIMEOUT_MINUTES || 5);
 const SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000;
 
-// Use an in-memory session store for development.
-// If you later cluster the app, replace this with a shared store (e.g. Redis).
-const memoryStore = new session.MemoryStore();
+// Redis-backed session store when REDIS_URL is configured (survives restarts, works
+// across multiple instances). Falls back to the in-memory store for local dev when unset.
+function buildSessionStore() {
+  if (!process.env.REDIS_URL) {
+    console.warn(
+      '[security] REDIS_URL is not set — using in-memory session store (lost on restart, ' +
+        'not safe for multiple instances). Set REDIS_URL in production.'
+    );
+    return new session.MemoryStore();
+  }
+  try {
+    const { createClient } = require('redis');
+    const { RedisStore } = require('connect-redis');
+    const redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient.on('error', (err) => console.error('[security] Redis session store error:', err.message));
+    redisClient.connect().catch((err) => {
+      console.error('[security] Failed to connect to Redis for sessions:', err.message);
+    });
+    return new RedisStore({ client: redisClient, prefix: 'sess:' });
+  } catch (err) {
+    console.error(
+      '[security] REDIS_URL is set but redis/connect-redis failed to initialize; falling back to in-memory store:',
+      err.message
+    );
+    return new session.MemoryStore();
+  }
+}
+
+// Shared by express-session and Keycloak's own grant store below.
+const memoryStore = buildSessionStore();
 
 // Strong unique SESSION_SECRET required for stable sessions; production generates ephemeral secret if unset.
 const sessionSecret = (() => {

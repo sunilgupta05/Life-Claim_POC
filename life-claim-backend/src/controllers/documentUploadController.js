@@ -6,7 +6,7 @@ const dotenv = require('dotenv');
 const uploadedDocumentsService = require('../services/uploadedDocumentsService');
 const DOCUMENT_STORAGE = process.env.ENVIRONMENT1 === 'PRODUCTION' ? process.env.PROD_DOCUMENT_STORAGE_LOCATION : process.env.DEV_DOCUMENT_STORAGE_LOCATION;
 const isProduction = process.env.NODE_ENV === 'production';
-const exposeErrorDetails = !isProduction;
+const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
 const INLINE_PREVIEW_MIME_TYPES = [
   'application/pdf',
   'image/jpeg',

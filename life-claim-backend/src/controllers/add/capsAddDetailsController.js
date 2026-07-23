@@ -2,7 +2,7 @@ const CapsAddDetailsDoa = require('../../dataAccess/add/capsAddDetailsDao');
 const { resetAddDemoData } = require('../../dataAccess/add/addDemoResetDao');
 const { validateAddExcelPayload } = require('../../util/addDataEntryValidation');
 const { getUserContext } = require('../../middleware/claimAccessMiddleware');
-const exposeErrorDetails = process.env.NODE_ENV !== 'production';
+const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
 const internalError = (res, error) =>
   res.status(500).json({
     success: false,

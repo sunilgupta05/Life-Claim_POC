@@ -174,6 +174,113 @@ const validateFraudClaimBody = validateBody((body) => {
   return errors;
 });
 
+const validateParams = (paramChecks) => (req, res, next) => {
+  const errors = {};
+  for (const [key, check] of Object.entries(paramChecks)) {
+    const message = check(asTrimmed(req.params[key]));
+    if (message) errors[key] = message;
+  }
+  if (Object.keys(errors).length) {
+    return sendValidationError(res, errors);
+  }
+  return next();
+};
+
+const idLikePattern = /^[A-Za-z0-9._-]{1,50}$/;
+const phoneLikePattern = /^[0-9+()\-\s]{5,20}$/;
+const roleNamePattern = /^[A-Za-z0-9 _-]{2,100}$/;
+
+const validateHospitalIdParam = validateParams({
+  hospitalId: (v) => (idLikePattern.test(v) ? null : 'hospitalId format is invalid.'),
+});
+
+const validateNumericIdParam = (paramName) =>
+  validateParams({
+    [paramName]: (v) => (/^[0-9]{1,20}$/.test(v) ? null : `${paramName} must be numeric.`),
+  });
+
+const validateHospitalEmailParam = validateParams({
+  hospital_email: (v) => (emailPattern.test(v) ? null : 'hospital_email format is invalid.'),
+});
+
+const validateFaxNoParam = validateParams({
+  fax_no: (v) => (phoneLikePattern.test(v) ? null : 'fax_no format is invalid.'),
+});
+
+const validateHospitalPhoneParam = validateParams({
+  hospital_phone: (v) => (phoneLikePattern.test(v) ? null : 'hospital_phone format is invalid.'),
+});
+
+const validateCampaignTypeParam = validateParams({
+  campaignType: (v) => (v && maxLen(v, 100) ? null : 'campaignType is required and must be <= 100 chars.'),
+});
+
+const validateAddEmailBody = validateBody((body) => {
+  const errors = {};
+  if (!idLikePattern.test(asTrimmed(body.hospitalId))) errors.hospitalId = 'hospitalId format is invalid.';
+  if (!emailPattern.test(asTrimmed(body.email))) errors.email = 'Invalid email.';
+  return errors;
+});
+
+const validateAddFaxBody = validateBody((body) => {
+  const errors = {};
+  if (!idLikePattern.test(asTrimmed(body.hospitalId))) errors.hospitalId = 'hospitalId format is invalid.';
+  if (!phoneLikePattern.test(asTrimmed(body.fax))) errors.fax = 'Invalid fax number.';
+  return errors;
+});
+
+const validateAddContactBody = validateBody((body) => {
+  const errors = {};
+  if (!idLikePattern.test(asTrimmed(body.hospitalId))) errors.hospitalId = 'hospitalId format is invalid.';
+  if (!phoneLikePattern.test(asTrimmed(body.contact))) errors.contact = 'Invalid contact number.';
+  return errors;
+});
+
+const validateUpdateEmailBody = validateBody((body) => {
+  const errors = {};
+  if (body.HOSPITAL_EMAIL !== undefined && !emailPattern.test(asTrimmed(body.HOSPITAL_EMAIL))) {
+    errors.HOSPITAL_EMAIL = 'Invalid email.';
+  }
+  return errors;
+});
+
+const validateUpdateFaxBody = validateBody((body) => {
+  const errors = {};
+  if (body.FAX_NO !== undefined && !phoneLikePattern.test(asTrimmed(body.FAX_NO))) {
+    errors.FAX_NO = 'Invalid fax number.';
+  }
+  return errors;
+});
+
+const validateUpdateContactBody = validateBody((body) => {
+  const errors = {};
+  if (body.HOSPITAL_PHONE !== undefined && !phoneLikePattern.test(asTrimmed(body.HOSPITAL_PHONE))) {
+    errors.HOSPITAL_PHONE = 'Invalid phone number.';
+  }
+  return errors;
+});
+
+const validateGeneralInfoUpdateBody = validateBody((body) => {
+  const errors = {};
+  if (body.valuesArray !== undefined && !Array.isArray(body.valuesArray)) {
+    errors.valuesArray = 'valuesArray must be an array.';
+  }
+  return errors;
+});
+
+const validateCreateRoleBody = validateBody((body) => {
+  const errors = {};
+  // Controller reads body.rolename; the current UI actually sends role_name. Accept either
+  // to avoid rejecting the existing (already-mismatched) request shape.
+  if (!roleNamePattern.test(asTrimmed(body.rolename || body.role_name))) {
+    errors.rolename = 'A role name is required and must be 2-100 chars.';
+  }
+  if (body.roleDescription !== undefined && !maxLen(body.roleDescription, 255)) {
+    errors.roleDescription = 'roleDescription must be <= 255 chars.';
+  }
+  return errors;
+});
+
 module.exports = {
   validateKeycloakTokenBody,
   validateAuthenticateBody,
@@ -186,4 +293,18 @@ module.exports = {
   validateClaimNoBody,
   validatePolicyIdBody,
   validateFraudClaimBody,
+  validateHospitalIdParam,
+  validateNumericIdParam,
+  validateHospitalEmailParam,
+  validateFaxNoParam,
+  validateHospitalPhoneParam,
+  validateCampaignTypeParam,
+  validateAddEmailBody,
+  validateAddFaxBody,
+  validateAddContactBody,
+  validateUpdateEmailBody,
+  validateUpdateFaxBody,
+  validateUpdateContactBody,
+  validateGeneralInfoUpdateBody,
+  validateCreateRoleBody,
 };

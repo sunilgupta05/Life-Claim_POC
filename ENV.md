@@ -7,8 +7,9 @@ Both apps read **`.env` in their own folder** (already committed locally for thi
 | Purpose | Frontend (`life-claim-frontend/.env`) | Backend (`life-claim-backend/.env`) |
 |--------|----------------------------------------|----------------------------------------|
 | API / proxy | `VITE_PROXY_TARGET=https://192.168.60.62:3010` | `PORT=3010`, `USE_HTTPS=true` |
-| Drools rules | — | `RULES_ENGINE_URL=http://localhost:8095`, `RULES_ENGINE_ENABLED=true` |
+| Drools rules | — | `RULES_ENGINE_URL=http://localhost:8095`, `RULES_ENGINE_ENABLED=true`, `RULES_ENGINE_API_KEY=…` (must match `life-claim-rules`'s `RULES_ENGINE_API_KEY`; defaults to a dev-only value on both sides if unset — set a real shared secret in production) |
 | Idle logout | `VITE_IDLE_TIMEOUT_MINUTES=5` | `SESSION_IDLE_TIMEOUT_MINUTES=5` |
+| Session store | — | `REDIS_URL=redis://localhost:6379` (production; falls back to in-memory if unset) |
 | reCAPTCHA | `VITE_RECAPTCHA_SITE_KEY=…La0QUjc…` (site) | `RECAPTCHA_SECRET_KEY=…RyWFweBE` (secret) |
 | Keycloak | `VITE_KEYCLOAK_URL=http://localhost:8081` | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID` |
 | SIT bypass | `VITE_ENVIRONMENT=SIT`, `VITE_CAPTCHA_OPTIONAL=true` | `ENVIRONMENT=SIT` |

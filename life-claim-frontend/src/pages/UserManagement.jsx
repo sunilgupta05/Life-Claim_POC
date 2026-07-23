@@ -13,6 +13,24 @@ import { roleBadgeTokens, metricCardTokens, fieldInputStyle, outlineButtonStyle 
 
 const BLANK = { name:'', username:'', email:'', role:'Pre Assessor', status:'Active' }
 
+/** Random initial password for new accounts (shown once to the admin to share with the user). */
+function generateInitialPassword() {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const lower = 'abcdefghijkmnopqrstuvwxyz'
+  const digits = '23456789'
+  const symbols = '!@#$%^&*'
+  const all = upper + lower + digits + symbols
+  const secureRandom = () => {
+    const buf = new Uint32Array(1)
+    crypto.getRandomValues(buf)
+    return buf[0] / (0xffffffff + 1)
+  }
+  const pick = (chars) => chars[Math.floor(secureRandom() * chars.length)]
+  const required = [pick(upper), pick(lower), pick(digits), pick(symbols)]
+  const rest = Array.from({ length: 8 }, () => pick(all))
+  return [...required, ...rest].sort(() => secureRandom() - 0.5).join('')
+}
+
 function Modal({ title, onClose, children }) {
   const { tokens: T } = useTheme()
   return (
@@ -148,9 +166,10 @@ export default function UserManagement() {
     if (!newUser.name || !newUser.username || !newUser.email) { toast('warning','Missing Fields','Please fill all required fields.'); return }
     try {
       const parts = newUser.name.trim().split(' ')
-      await createUser({ firstName: parts[0], lastName: parts.slice(1).join(' ') || '.', username: newUser.username, email: newUser.email, password: 'Password@123', roles: [newUser.role || 'Pre Assessor'] })
+      const initialPassword = generateInitialPassword()
+      await createUser({ firstName: parts[0], lastName: parts.slice(1).join(' ') || '.', username: newUser.username, email: newUser.email, password: initialPassword, roles: [newUser.role || 'Pre Assessor'] })
       reloadUsers()
-      toast('success','User Added',`${newUser.name} has been added.`)
+      toast('success','User Added',`${newUser.name} has been added. Initial password: ${initialPassword} (share this with the user; it will not be shown again).`)
     } catch (e) { toast('error','Failed', e.response?.data?.message || e.message) }
     setShowAdd(false); setNewUser(BLANK)
   }

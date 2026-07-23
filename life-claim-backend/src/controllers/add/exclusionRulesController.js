@@ -1,6 +1,6 @@
 const { checkForExclusionRule } = require('../../services/add/exclusionRulesService');
 const { upsertAssessorPoolCase } = require('../../dataAccess/add/capsAssessorPoolCasesDao');
-const exposeErrorDetails = process.env.NODE_ENV !== 'production';
+const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
 const internalError = (res, error) =>
   res.status(500).json({
     success: false,

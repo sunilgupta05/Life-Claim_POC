@@ -4,7 +4,7 @@ const jwtUtil = require('../util/jwtUtil');
 const userDao = require('../dataAccess/userDao');
 const logger = require('../config/logConfig');
 const crypto = require('crypto'); // Added crypto for session generation
-const { recordLogin, recordLogout } = require('./auditLogService');
+const { recordLogin, recordLogout, getLastLoginBefore } = require('./auditLogService');
 const { isRetiredAdminUsername } = require('../util/superuserRoles');
 const { verifyRecaptchaToken } = require('./recaptchaService');
 const CLOSE_LOGOUT_GRACE_MS = Number(process.env.CLOSE_LOGOUT_GRACE_MS || 8000);
@@ -121,14 +121,15 @@ const loginUser = async (username, password, captchaToken, requestMeta = {}) => 
   });
   logger.info(`USER ${username} logged in successfully. New Session: ${sessionId}`);
 
+  const lastLoginAt = await getLastLoginBefore(user.username);
   await recordLogin({
     username: user.username,
     ipAddress: requestMeta.ipAddress,
     userAgent: requestMeta.userAgent,
     roles: user.roles,
   });
-  
-  return { token, user: { username: user.username, roles: user.roles } };
+
+  return { token, user: { username: user.username, roles: user.roles, last_login_at: lastLoginAt } };
 };
 
 const logoutUser = async (userId) => {

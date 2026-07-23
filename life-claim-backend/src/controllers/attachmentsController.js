@@ -1,6 +1,6 @@
 const con = require('../config/dbConfig');
 
-const exposeErrorDetails = process.env.NODE_ENV !== 'production';
+const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
 
 exports.getAllAttachments = async (req, res) => {
     const query = 'SELECT * FROM attachment WHERE inward_id = ?';

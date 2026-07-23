@@ -7,7 +7,7 @@ const {
 } = require('../services/transactionApiClient');
 
 console.log('txnDetailsController >> transaction service:', getTransactionApiBase());
-const exposeErrorDetails = process.env.NODE_ENV !== 'production';
+const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
 
 // Transaction API calling 
 const getTxnDetailsController = async (req, res) => {

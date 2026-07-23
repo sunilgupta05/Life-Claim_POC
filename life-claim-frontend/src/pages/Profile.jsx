@@ -166,7 +166,7 @@ export default function Profile() {
 
                 ['Email',      user?.email || '—'],
 
-                ['Last Login', user?.loginTime ? new Date(user.loginTime).toLocaleString('en-IN') : '—'],
+                ['Last Login', user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('en-IN') : 'First login'],
 
               ].map(([k,v])=>(
 
