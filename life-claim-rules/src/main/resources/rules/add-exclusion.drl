@@ -1,0 +1,141 @@
+package com.icici.lifeclaim.rules.add
+
+import com.icici.lifeclaim.rules.model.AddExclusionFacts
+import com.icici.lifeclaim.rules.model.AddExclusionResult
+import com.icici.lifeclaim.rules.model.ExclusionRuleHelper
+
+rule "Claim received"
+    salience 100
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts()
+        eval(ExclusionRuleHelper.inListIgnoreCase($facts.getClaimType(), $facts.getClaimReceivedValues()))
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("Claim Received");
+        $result.addReason("Claim type matches Claim received master");
+end
+
+rule "In-active policy status"
+    salience 90
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts()
+        eval(ExclusionRuleHelper.inListIgnoreCase($facts.getPolicyStatus(), $facts.getInactivePolicyStatusValues()))
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("In-active policy status");
+        $result.addReason("Policy status matches inactive master list");
+end
+
+rule "RCD more than 3 years"
+    salience 80
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts( contractPresent == true, rcdYears >= 3 )
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("RCD more than 3 years");
+        $result.addReason("RCD is " + $facts.getRcdYears() + " years (threshold: 3)");
+end
+
+rule "Annual Premium > 5 lakh saving cases"
+    salience 70
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts( contractPresent == true )
+        eval($facts.getPremiumAmount() > 0 && $facts.getPremiumFrequency() > 0)
+        eval($facts.getProductCode() != null && !$facts.getProductCode().isBlank())
+        eval(ExclusionRuleHelper.isSavingProductCode($facts.getProductCode()))
+        eval($facts.getAnnualPremium() >= 500000)
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("Annual Premium > 5 lakh saving cases");
+        $result.addReason("Annual premium " + $facts.getAnnualPremium() + " for saving/ULIP product");
+end
+
+rule "NRI customer"
+    salience 60
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts( lifeAssuredPresent == true )
+        eval(ExclusionRuleHelper.isNri($facts.getResidentialStatus()))
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("NRI customer");
+        $result.addReason("Residential status is NRI");
+end
+
+rule "Top advisor"
+    salience 50
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts()
+        eval(ExclusionRuleHelper.inListIgnoreCase($facts.getAdvisorCode(), $facts.getTopAdvisorValues()))
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("Top advisor");
+        $result.addReason("Advisor matches top advisor master list");
+end
+
+rule "Partner Exclusion"
+    salience 40
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts()
+        eval(ExclusionRuleHelper.inListIgnoreCase($facts.getPartnerName(), $facts.getPartnerExclusionValues()))
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("Partner Exclusion");
+        $result.addReason("Partner matches partner exclusion master list");
+end
+
+rule "Product Norms"
+    salience 30
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts( contractPresent == true )
+        eval($facts.getProductCode() != null && !$facts.getProductCode().isBlank())
+        eval(
+            ExclusionRuleHelper.inListIgnoreCase($facts.getProductCode(), $facts.getProductNormsValues())
+            || ExclusionRuleHelper.isProductNormsCode($facts.getProductCode())
+        )
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("Product Norms");
+        $result.addReason("Product code matches product norms");
+end
+
+rule "Minor Life Assured"
+    salience 20
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts( lifeAssuredPresent == true, ageInYears > 0, ageInYears <= 18 )
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("Minor Life Assured");
+        $result.addReason("Life assured age is " + $facts.getAgeInYears());
+end
+
+rule "ULIP Policy"
+    salience 10
+    activation-group "add-exclusion"
+    when
+        $facts : AddExclusionFacts( contractPresent == true )
+        eval($facts.getProductCode() != null && !$facts.getProductCode().isBlank())
+        eval(ExclusionRuleHelper.inListIgnoreCase($facts.getProductCode(), $facts.getUlipPolicyValues()))
+        $result : AddExclusionResult( excluded == false )
+    then
+        $result.setExcluded(true);
+        $result.setExclusionType("ULIP Policy");
+        $result.addReason("Product code matches ULIP master list");
+end

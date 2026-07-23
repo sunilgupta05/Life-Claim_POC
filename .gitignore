@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+life-claim-backend/node_modules
+life-claim-frontend/node_modules
+dist
+dist-ssr
+*.local
+
+# NEVER commit .env — contains DB passwords and API keys
+.env
+.env.local
+.env.production
+.env.development
+life-claim-backend/.env
+life-claim-frontend/.env
+
+# Build output
+life-claim-frontend/build/
+life-claim-backend/logs/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Login RSA private key (public key may be committed for reference; private must not)
+life-claim-backend/keys/login_private.pem
+
+# SSL certs (if any)
+*.pem
+*.key
+*.cert
