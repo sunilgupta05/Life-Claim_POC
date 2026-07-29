@@ -510,28 +510,30 @@ const registerClaim = async (req, res) => {
       transaction,
     });
 
-    // IIB Enquiry (manual sub-tab) — one row per claim in iib_enquiry table
-    const iibEnquiry = await IibEnquiry.create(
-      {
-        CLAIM_ID: String(claim.CLAIM_ID),
-        IIB_REF_NO: iibRefNo || null,
-        IIB_ENQUIRY_DATE: sanitizeDbDate(iibEnquiryDate),
-        IIB_STATUS: iibStatus || null,
-        IIB_POLICIES_FOUND:
-          iibPoliciesFound != null && iibPoliciesFound !== ""
-            ? parseInt(iibPoliciesFound, 10)
-            : null,
-        IIB_TOTAL_SA:
-          iibTotalSA != null && iibTotalSA !== "" ? parseFloat(iibTotalSA) : null,
-        IIB_FRAUD_FLAG: iibFraudFlag || null,
-        IIB_MULTIPLE_POLICY: iibMultiplePolicy || null,
-        IIB_NON_DISCLOSURE: iibNonDisclosure || null,
-        IIB_REMARKS: iibRemarks || null,
-        CREATED_BY: createdBy,
-        MODIFIED_BY: modifiedBy,
-      },
-      { transaction }
-    );
+    // IIB Enquiry is persisted AFTER transaction.commit() below.
+    // Reason: a failed INSERT inside this InnoDB transaction would abort the
+    // whole claim (and historically some environments failed IIB while the rest
+    // of registration was expected to succeed). Payload is built here so we
+    // still have claim.CLAIM_ID + req fields in scope after commit.
+    const iibEnquiryPayload = {
+      CLAIM_ID: String(claim.CLAIM_ID),
+      IIB_REF_NO: iibRefNo || null,
+      IIB_ENQUIRY_DATE: sanitizeDbDate(iibEnquiryDate),
+      IIB_STATUS: iibStatus || null,
+      IIB_POLICIES_FOUND:
+        iibPoliciesFound != null && iibPoliciesFound !== ""
+          ? parseInt(iibPoliciesFound, 10)
+          : null,
+      IIB_TOTAL_SA:
+        iibTotalSA != null && iibTotalSA !== "" ? parseFloat(iibTotalSA) : null,
+      IIB_FRAUD_FLAG: iibFraudFlag || null,
+      IIB_MULTIPLE_POLICY: iibMultiplePolicy || null,
+      IIB_NON_DISCLOSURE: iibNonDisclosure || null,
+      IIB_REMARKS: iibRemarks || null,
+      CREATED_BY: createdBy,
+      MODIFIED_BY: modifiedBy,
+    };
+    let iibEnquiry = null;
 
     systemAssessorSnake.CLAIM_ID = claim.CLAIM_ID
     const sysRemark = await SystemAssessorRemark.create(systemAssessorSnake, {
@@ -590,6 +592,7 @@ const registerClaim = async (req, res) => {
       rowSnake.CLAIM_ID = claim.CLAIM_ID;
       rowSnake.REASON = row.reason || row.caseTrigger;
       rowSnake.REMARKS = row.remarks || row.triggerReason;
+      rowSnake.PRIORITY_FLAG = row.priorityFlag || row.PRIORITY_FLAG || null;
       rowSnake.CREATEDBY = createdBy;
       rowSnake.MODIFIEDBY = modifiedBy;
       return await CaseTrigger.create(rowSnake, { transaction });
@@ -800,6 +803,45 @@ const registerClaim = async (req, res) => {
     );
 
     await transaction.commit(); // Commit transaction
+
+    // IIB Enquiry — after commit so a bad IIB insert cannot roll back the claim.
+    // Always write one row per claim (same pattern as telecalling/questions, but
+    // outside the main txn for reliability). Raw SQL avoids Sequelize PK quirks
+    // on iib_enquiry (model marks CLAIM_ID as PK; physical table has none).
+    try {
+      console.log('[IIB] registerClaim >> post-commit iib_enquiry INSERT', iibEnquiryPayload);
+      debugLog('iibEnquiryPayload post-commit', iibEnquiryPayload);
+      await sequelize.query(
+        `INSERT INTO iib_enquiry (
+          CLAIM_ID, IIB_REF_NO, IIB_ENQUIRY_DATE, IIB_STATUS,
+          IIB_POLICIES_FOUND, IIB_TOTAL_SA, IIB_FRAUD_FLAG,
+          IIB_MULTIPLE_POLICY, IIB_NON_DISCLOSURE, IIB_REMARKS,
+          CREATED_BY, MODIFIED_BY
+        ) VALUES (
+          :CLAIM_ID, :IIB_REF_NO, :IIB_ENQUIRY_DATE, :IIB_STATUS,
+          :IIB_POLICIES_FOUND, :IIB_TOTAL_SA, :IIB_FRAUD_FLAG,
+          :IIB_MULTIPLE_POLICY, :IIB_NON_DISCLOSURE, :IIB_REMARKS,
+          :CREATED_BY, :MODIFIED_BY
+        )`,
+        { replacements: iibEnquiryPayload }
+      );
+      iibEnquiry = await IibEnquiry.findOne({
+        where: { CLAIM_ID: iibEnquiryPayload.CLAIM_ID },
+      });
+      console.log('[IIB] registerClaim >> iib_enquiry saved', iibEnquiry?.dataValues || iibEnquiryPayload);
+      debugLog('iibEnquiry saved', iibEnquiry?.dataValues || iibEnquiryPayload);
+    } catch (iibErr) {
+      console.error('[IIB] registerClaim >> post-commit iib_enquiry INSERT FAILED', {
+        message: iibErr?.message,
+        original: iibErr?.original?.sqlMessage || iibErr?.original,
+        payload: iibEnquiryPayload,
+      });
+      debugLog('iibEnquiry FAILED post-commit', {
+        message: iibErr?.message,
+        original: iibErr?.original?.sqlMessage || String(iibErr?.original),
+        payload: iibEnquiryPayload,
+      });
+    }
 
     // Payable breakdown for Life Asia decisionDetails / Live & payable cards.
     // After commit so a rolled-back claim does not leave an orphan row.

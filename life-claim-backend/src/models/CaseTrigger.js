@@ -32,6 +32,10 @@ const CaseTrigger = sequelize.define('CaseTrigger', {
         type: DataTypes.STRING(200),
         allowNull: true,
     },
+    PRIORITY_FLAG: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+    },
     CREATEDON: {
         type: DataTypes.DATE, // TIMESTAMP in SQL
         allowNull: true,

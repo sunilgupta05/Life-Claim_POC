@@ -468,6 +468,7 @@ function buildCaseTriggerRows(flat) {
     {
       reason: truncStr(flat.caseTrigger, 200),
       remarks: truncStr(flat.triggerReason || '', 4000),
+      priorityFlag: truncStr(flat.priorityFlag || '', 200),
     },
   ]
 }
@@ -528,6 +529,18 @@ export function buildRegistrationPayload(flat, policy) {
     agentHistoryTable: asArray(policy?.agentRepudiation || flat.agentHistoryTable),
     trapScoreData: buildTrapScoreData(flat, policy),
     riderDetailsTable1: asArray(policy?.riders || flat.riderDetailsTable1),
+    // Explicit IIB Enquiry fields (Assessment → IIB Enquiry sub-tab).
+    // Keep them as top-level keys so registerClaimController can destructure them
+    // even if a later spread overwrite ever drops something from `...flat`.
+    iibRefNo: flat.iibRefNo || '',
+    iibEnquiryDate: flat.iibEnquiryDate || null,
+    iibStatus: flat.iibStatus || '',
+    iibPoliciesFound: flat.iibPoliciesFound ?? '',
+    iibTotalSA: flat.iibTotalSA ?? '',
+    iibFraudFlag: flat.iibFraudFlag || '',
+    iibMultiplePolicy: flat.iibMultiplePolicy || '',
+    iibNonDisclosure: flat.iibNonDisclosure || '',
+    iibRemarks: flat.iibRemarks || '',
   }
 }
 

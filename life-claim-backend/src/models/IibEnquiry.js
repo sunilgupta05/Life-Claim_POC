@@ -8,6 +8,9 @@ const IibEnquiry = sequelize.define('IibEnquiry', {
     allowNull: true,
   },
   CLAIM_ID: {
+    // Must stay primaryKey: without a declared PK, Sequelize injects an implicit
+    // `id` column that does not exist in iib_enquiry, so create() fails with
+    // "Unknown column 'id'" and rolls back the whole register-claim transaction.
     type: DataTypes.STRING(20),
     allowNull: false,
     primaryKey: true,
@@ -152,7 +155,10 @@ const IibEnquiry = sequelize.define('IibEnquiry', {
     allowNull: true,
   },
   IIB_REMARKS: {
-    type: DataTypes.STRING(2000),
+    // TEXT (not VARCHAR(2000)) — the table already carries six VARCHAR(2000)
+    // columns, so an inline VARCHAR(2000) here overflows InnoDB's 65535-byte
+    // row limit. TEXT stores off-page and holds the free-text enquiry findings.
+    type: DataTypes.TEXT,
     allowNull: true,
   },
 }, {

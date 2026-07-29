@@ -382,6 +382,10 @@ const getAssessment = async (req, res) => {
       where: { CLAIM_ID: claim.CLAIM_ID },
     });
 
+    const trapScores = await TrapScore.findAll({
+      where: { CLAIM_ID: claim.CLAIM_ID },
+    });
+
     // const fraudFlags = await FraudFlagsTable.findAll({
     //   where: { CLAIM_ID: claim.CLAIM_ID },
     // });
@@ -411,6 +415,9 @@ const getAssessment = async (req, res) => {
         snakeToCamelCase(record?.dataValues)
       ),
       systemRemarksTable: systemRemarks.map((record) =>
+        snakeToCamelCase(record?.dataValues)
+      ),
+      trapScoreTable: trapScores.map((record) =>
         snakeToCamelCase(record?.dataValues)
       ),
       // fraudFlags: fraudFlags.map((record) => snakeToCamelCase(record?.dataValues)),

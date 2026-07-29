@@ -12,6 +12,9 @@ export default function AssessmentWorkspaceTab({ assessment, canEdit, onPatch })
   const questionRows = mapAssessmentForWorkspace(assessment)
 
   const systemRows = (() => {
+    const trap = assessment?.trapScoreTable || assessment?.trapScore
+    if (Array.isArray(trap) && trap.length) return trap
+    if (trap && typeof trap === 'object' && Object.keys(trap).length) return [trap]
     const raw = assessment?.remarks || assessment?.systemRemarksTable
     if (Array.isArray(raw)) return raw
     if (raw && typeof raw === 'object' && Object.keys(raw).length) return [raw]
@@ -90,14 +93,28 @@ export default function AssessmentWorkspaceTab({ assessment, canEdit, onPatch })
       </Accordion>
 
       <Accordion title="Telecalling" open={open === 'tel'} onToggle={() => toggle('tel')}>
-        <SimpleTable columns={[{ key: 'callDate', label: 'Date' }, { key: 'outcome', label: 'Outcome' }, { key: 'remarks', label: 'Remarks' }]} rows={assessment?.telecalling || assessment?.telecallingTable || []} />
+        <SimpleTable
+          columns={[{ key: 'callDate', label: 'Date' }, { key: 'outcome', label: 'Outcome' }, { key: 'remarks', label: 'Remarks' }]}
+          rows={(assessment?.telecalling || assessment?.telecallingTable || []).map((r) => ({
+            ...r,
+            callDate: r.callDate ?? r.theDate ?? r.the_date ?? '—',
+            remarks: r.remarks ?? r.details ?? '—',
+          }))}
+        />
       </Accordion>
 
       <Accordion title="Case trigger" open={open === 'trigger'} onToggle={() => toggle('trigger')}>
-        <SimpleTable columns={[{ key: 'triggerFlag', label: 'Trigger' }, { key: 'reason', label: 'Reason' }]} rows={assessment?.caseTrigger || assessment?.caseTriggerTable || []} />
+        <SimpleTable
+          columns={[{ key: 'triggerFlag', label: 'Trigger' }, { key: 'priorityFlag', label: 'Priority Flag' }]}
+          rows={(assessment?.caseTrigger || assessment?.caseTriggerTable || []).map((r) => ({
+            ...r,
+            triggerFlag: r.triggerFlag ?? r.reason ?? '—',
+            priorityFlag: r.priorityFlag ?? '—',
+          }))}
+        />
       </Accordion>
 
-      <Accordion title="System assessor remarks" subtitle="From assessor-fetch remarks" open={open === 'remarks'} onToggle={() => toggle('remarks')}>
+      <Accordion title="System assessor remarks" subtitle="From trap_score" open={open === 'remarks'} onToggle={() => toggle('remarks')}>
         {systemRows.length ? (
           <SimpleTable
             columns={[
@@ -109,9 +126,9 @@ export default function AssessmentWorkspaceTab({ assessment, canEdit, onPatch })
             ]}
             rows={systemRows.map((r, i) => ({
               sl: r.sl ?? r.SL ?? i + 1,
-              date: r.date ?? r.remarkDate ?? '—',
-              remarks: r.remarks ?? r.remark ?? r.systemRemarks ?? '—',
-              score: r.score ?? '—',
+              date: r.trapScoreDate ?? r.date ?? r.remarkDate ?? '—',
+              remarks: r.trapRemarks ?? r.remarks ?? r.remark ?? r.systemRemarks ?? '—',
+              score: r.trapScore ?? r.score ?? '—',
               response: r.response ?? '—',
             }))}
           />
