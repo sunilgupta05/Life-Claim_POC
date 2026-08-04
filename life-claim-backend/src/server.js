@@ -1,6 +1,7 @@
 // backend/server.js
 
 const http = require('http');
+const appConfig = require('./config/configService');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
@@ -11,12 +12,12 @@ const app = require('./app');
 // - same code runs in local and deployment
 // - machine/environment decides whether URL is localhost or deployed IP/domain
 // - switch using .env values, not by commenting code
-const PORT = process.env.PORT || 3012;
-const HOST = process.env.HOST || '0.0.0.0'; // Bind to all interfaces
-const USE_HTTPS = process.env.USE_HTTPS !== 'false'; // Default to HTTPS; set to 'false' to disable
+const PORT = appConfig.get('PORT') || 3012;
+const HOST = appConfig.get('HOST') || '0.0.0.0'; // Bind to all interfaces
+const USE_HTTPS = appConfig.get('USE_HTTPS') !== 'false'; // Default to HTTPS; set to 'false' to disable
 
 // Display URL only; deployment host/domain should come from environment.
-const SERVER_IP = process.env.SERVER_IP || 'localhost';
+const SERVER_IP = appConfig.get('SERVER_IP') || 'localhost';
 
 // Load SSL certificates
 const certPath = path.join(__dirname, '../cert.pem');

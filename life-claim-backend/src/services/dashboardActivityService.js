@@ -1,8 +1,9 @@
 const dashboardActivityDao = require('../dataAccess/dashboardActivityDao');
+const appConfig = require('../config/configService');
 
-const APP_TZ_OFFSET = process.env.APP_TIMEZONE_OFFSET || '+05:30';
+const APP_TZ_OFFSET = appConfig.get('APP_TIMEZONE_OFFSET') || '+05:30';
 
-const ACTIVITY_WINDOW_SECONDS = Number(process.env.ACTIVITY_WINDOW_HOURS || 24) * 60 * 60; // default last 24 hours
+const ACTIVITY_WINDOW_SECONDS = Number(appConfig.get('ACTIVITY_WINDOW_HOURS') || 24) * 60 * 60; // default last 24 hours
 
 /** Parse MySQL DATETIME (naive IST) without UTC skew from the Node host timezone. */
 function parseDbDateTime(value) {

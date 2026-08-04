@@ -1,4 +1,5 @@
 const IntimationDetail = require("../models/IntimationDetail");
+const appConfig = require('../config/configService');
 const TrapScore = require("../models/TrapScore")
 const CauseEvent = require("../models/CauseEvent");
 const PayeeDetail = require("../models/PayeeDetail");
@@ -989,7 +990,7 @@ const registerClaim = async (req, res) => {
     }
 
     console.error("registerClaim >> error object:", error);
-    const exposeDetail = process.env.NODE_ENV !== "production";
+    const exposeDetail = appConfig.get('NODE_ENV') !== "production";
     res.status(500).json({
       message: "Internal server error",
       error: exposeDetail

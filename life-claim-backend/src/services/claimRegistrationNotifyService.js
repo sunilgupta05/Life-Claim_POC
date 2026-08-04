@@ -1,4 +1,5 @@
 const { publishToQueue } = require('../queues/rabbitmq');
+const appConfig = require('../config/configService');
 const whatsappService = require('./whatsappService');
 const { sendEmail } = require('./outgoingEmailService');
 
@@ -43,7 +44,7 @@ const notifyClaimRegistered = async ({
       error: result?.error,
     });
 
-    if (process.env.NOTIFICATION_USE_QUEUE === 'true') {
+    if (appConfig.get('NOTIFICATION_USE_QUEUE') === 'true') {
       await publishToQueue(NOTIFICATIONS_QUEUE, {
         type: 'whatsapp-claim-registration',
         mobileNo,
@@ -80,7 +81,7 @@ Life Claims Team`;
       error: emailResult?.error,
     });
 
-    if (process.env.NOTIFICATION_USE_QUEUE === 'true') {
+    if (appConfig.get('NOTIFICATION_USE_QUEUE') === 'true') {
       await publishToQueue(NOTIFICATIONS_QUEUE, {
         type: 'email',
         to: email.trim(),

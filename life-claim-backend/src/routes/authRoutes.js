@@ -1,4 +1,5 @@
 const express = require('express');
+const appConfig = require('../config/configService');
 const https = require('https');
 const authService = require('../services/authService');
 const axios = require('axios');
@@ -26,7 +27,7 @@ const {
 } = require('../util/authCookies');
 
 const router = express.Router();
-const SINGLE_SESSION_ENFORCED = process.env.SINGLE_SESSION_ENFORCED !== 'false';
+const SINGLE_SESSION_ENFORCED = appConfig.get('SINGLE_SESSION_ENFORCED') !== 'false';
 
 /** Clears httpOnly auth cookies (VAPT: session hygiene). No auth required. */
 router.post('/clear-token-cookie', (req, res) => {
@@ -49,14 +50,14 @@ const decodeJwtPayload = (token) => {
 function keycloakAxiosOptions() {
   const opts = {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    timeout: Number(process.env.KEYCLOAK_REQUEST_TIMEOUT_MS || 20000),
+    timeout: Number(appConfig.get('KEYCLOAK_REQUEST_TIMEOUT_MS') || 20000),
   };
   // Keep insecure TLS for non-production troubleshooting only.
-  const insecureTlsRequested = process.env.KEYCLOAK_TLS_INSECURE === 'true';
-  const allowInsecureTls = insecureTlsRequested && process.env.NODE_ENV !== 'production';
+  const insecureTlsRequested = appConfig.get('KEYCLOAK_TLS_INSECURE') === 'true';
+  const allowInsecureTls = insecureTlsRequested && appConfig.get('NODE_ENV') !== 'production';
   if (allowInsecureTls) {
     opts.httpsAgent = new https.Agent({ rejectUnauthorized: false });
-  } else if (insecureTlsRequested && process.env.NODE_ENV === 'production') {
+  } else if (insecureTlsRequested && appConfig.get('NODE_ENV') === 'production') {
     console.error('[security] KEYCLOAK_TLS_INSECURE=true is ignored in production.');
   }
   return opts;
@@ -64,7 +65,7 @@ function keycloakAxiosOptions() {
 
 // Proxy route for Keycloak token endpoint to avoid CORS issues
 router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, async (req, res, next) => {
-  const keycloakUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
+  const keycloakUrl = appConfig.get('KEYCLOAK_URL') || 'http://localhost:8080';
   const tokenEndpoint = `${keycloakUrl.replace(/\/$/, '')}/realms/life-claims/protocol/openid-connect/token`;
   const loginUsername = req.body?.username;
   const captchaToken = req.body?.captchaToken;
@@ -120,7 +121,7 @@ router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, asyn
           error_description: decryptErr.message || 'Could not decrypt login password.',
         });
       }
-    } else if (process.env.REQUIRE_ENCRYPTED_LOGIN === 'true') {
+    } else if (appConfig.get('REQUIRE_ENCRYPTED_LOGIN') === 'true') {
       return res.status(400).json({
         error: 'password_encryption_required',
         error_description: 'Encrypted login password is required.',
@@ -239,7 +240,7 @@ router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, asyn
       error: 'keycloak_unreachable',
       message: 'Login service is temporarily unavailable. Please try again later.',
     };
-    if (process.env.EXPOSE_ERROR_DETAIL === 'true') {
+    if (appConfig.get('EXPOSE_ERROR_DETAIL') === 'true') {
       body.detail = msg;
       body.code = code || undefined;
       body.attemptedUrl = tokenEndpoint;
@@ -311,7 +312,7 @@ router.post('/authenticate', protect(), validateAuthenticateBody, async (req, re
 
 /** Keycloak refresh_token grant — refresh token read from httpOnly cookie when present. */
 router.post('/keycloak/refresh', authTokenLimiter, async (req, res) => {
-  const keycloakUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
+  const keycloakUrl = appConfig.get('KEYCLOAK_URL') || 'http://localhost:8080';
   const tokenEndpoint = `${keycloakUrl.replace(/\/$/, '')}/realms/life-claims/protocol/openid-connect/token`;
   const refreshToken = String(
     req.body?.refresh_token || req.body?.refreshToken || readRefreshToken(req) || '',

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const appConfig = require('../config/configService');
 const fs = require('fs');
 const path = require('path');
 
@@ -24,7 +25,7 @@ function loadKeys() {
     return;
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  if (appConfig.get('NODE_ENV') === 'production') {
     console.error('[loginCrypto] LOGIN_RSA_* env vars or keys/login_*.pem are required in production.');
     return;
   }

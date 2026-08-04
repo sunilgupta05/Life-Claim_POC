@@ -1,22 +1,23 @@
 const axios = require('axios');
+const appConfig = require('../config/configService');
 const logger = require('../config/logConfig');
 
 const CAPTCHA_UNAVAILABLE_TOKEN = '__CAPTCHA_UNAVAILABLE__';
 const RECAPTCHA_TEST_SECRET_FALLBACK = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe';
-const isProduction = process.env.NODE_ENV === 'production';
-const envName = (process.env.ENVIRONMENT || '').toUpperCase();
+const isProduction = appConfig.get('NODE_ENV') === 'production';
+const envName = (appConfig.get('ENVIRONMENT') || '').toUpperCase();
 const isNonProdEnvironment = envName && envName !== 'PRODUCTION' && envName !== 'PROD';
 // VAPT #11: never allow the bypass to take effect in a real production deployment,
 // even if ALLOW_CAPTCHA_BYPASS was mistakenly left set to true.
-if (isProduction && process.env.ALLOW_CAPTCHA_BYPASS === 'true') {
+if (isProduction && appConfig.get('ALLOW_CAPTCHA_BYPASS') === 'true') {
   logger.error(
     '[security] ALLOW_CAPTCHA_BYPASS=true is set with NODE_ENV=production — ignoring it. ' +
       'Unset ALLOW_CAPTCHA_BYPASS in this environment.'
   );
 }
 const CAPTCHA_BYPASS_ALLOWED =
-  (process.env.ALLOW_CAPTCHA_BYPASS === 'true' && !isProduction) ||
-  process.env.NODE_ENV !== 'production' ||
+  (appConfig.get('ALLOW_CAPTCHA_BYPASS') === 'true' && !isProduction) ||
+  appConfig.get('NODE_ENV') !== 'production' ||
   isNonProdEnvironment;
 
 /**
@@ -43,7 +44,7 @@ async function verifyRecaptchaToken(captchaToken) {
     throw err;
   }
 
-  if (CAPTCHA_BYPASS_ALLOWED && process.env.ALLOW_CAPTCHA_BYPASS === 'true') {
+  if (CAPTCHA_BYPASS_ALLOWED && appConfig.get('ALLOW_CAPTCHA_BYPASS') === 'true') {
     logger.warn('reCAPTCHA backend verification skipped (ALLOW_CAPTCHA_BYPASS=true)');
     return;
   }

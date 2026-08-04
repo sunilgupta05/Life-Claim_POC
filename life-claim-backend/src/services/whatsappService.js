@@ -1,5 +1,6 @@
 const axios = require('axios');
-const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || 'http://192.168.60.62:3002/api/v1/';
+const appConfig = require('../config/configService');
+const WHATSAPP_API_URL = appConfig.get('WHATSAPP_API_URL') || 'http://192.168.60.62:3002/api/v1/';
 const maskMobile = (mobileNo) => {
   const digits = String(mobileNo || '').replace(/\D/g, '');
   if (digits.length <= 4) return '****';

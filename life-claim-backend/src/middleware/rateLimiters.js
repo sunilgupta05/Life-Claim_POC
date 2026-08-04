@@ -1,9 +1,10 @@
 const rateLimit = require('express-rate-limit');
+const appConfig = require('../config/configService');
 
 /** Login / token issuance — stricter cap */
 const authTokenLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_AUTH_MAX || 50),
+  max: Number(appConfig.get('RATE_LIMIT_AUTH_MAX') || 50),
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many authentication attempts. Please try again later.' },
@@ -12,7 +13,7 @@ const authTokenLimiter = rateLimit({
 /** Legacy username/password login (if used) */
 const legacyLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_LOGIN_MAX || 30),
+  max: Number(appConfig.get('RATE_LIMIT_LOGIN_MAX') || 30),
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts. Please try again later.' },
@@ -21,7 +22,7 @@ const legacyLoginLimiter = rateLimit({
 /** Logout audit — best-effort during sign-out; rate-limited, no strict Keycloak re-check */
 const logoutAuditLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_LOGOUT_AUDIT_MAX || 60),
+  max: Number(appConfig.get('RATE_LIMIT_LOGOUT_AUDIT_MAX') || 60),
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many logout audit requests. Please try again later.' },
@@ -30,11 +31,11 @@ const logoutAuditLimiter = rateLimit({
 /** General API burst control (optional env to disable: RATE_LIMIT_API_MAX=0) */
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_API_MAX || 300),
+  max: Number(appConfig.get('RATE_LIMIT_API_MAX') || 300),
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) =>
-    req.method === 'OPTIONS' || Number(process.env.RATE_LIMIT_API_MAX ?? 300) === 0,
+    req.method === 'OPTIONS' || Number(appConfig.get('RATE_LIMIT_API_MAX') ?? 300) === 0,
   message: { message: 'Too many requests. Please slow down.' },
 });
 

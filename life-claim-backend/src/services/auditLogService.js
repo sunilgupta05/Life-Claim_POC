@@ -1,13 +1,14 @@
 const db = require("../config/dbConfig");
+const appConfig = require('../config/configService');
 const logger = require("../config/logConfig");
 
 const TRACKED_USERS = new Set(
-  (process.env.AUDIT_TRACKED_USERS || "")
+  (appConfig.get('AUDIT_TRACKED_USERS') || "")
     .split(",")
     .map((u) => u.trim().toLowerCase())
     .filter(Boolean)
 );
-const SESSION_TTL_MINUTES = Number(process.env.AUDIT_SESSION_TTL_MINUTES || 5);
+const SESSION_TTL_MINUTES = Number(appConfig.get('AUDIT_SESSION_TTL_MINUTES') || 5);
 
 const isTrackedUser = (username) => {
   if (typeof username !== "string") return false;

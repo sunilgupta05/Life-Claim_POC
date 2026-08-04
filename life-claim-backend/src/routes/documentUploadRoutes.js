@@ -1,4 +1,5 @@
 const express = require('express');
+const appConfig = require('../config/configService');
 const fs = require('fs');
 const path = require('path');
 var multer = require('multer');
@@ -49,7 +50,7 @@ const {
     authorizeClaimBodyAccess,
     authorizePreviewNodeAccess,
 } = require('../middleware/claimAccessMiddleware');
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 
 const router = express.Router();
 

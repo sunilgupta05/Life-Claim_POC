@@ -1,12 +1,13 @@
 // backend/util/jwtUtil.js
 
 const jwt = require('jsonwebtoken');
+const appConfig = require('../config/configService');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
 const SECRET_KEY = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30m';
+const JWT_EXPIRES_IN = appConfig.get('JWT_EXPIRES_IN') || '30m';
 const JWT_ALGORITHM = 'HS256';
 
 const sign = (payload) => {

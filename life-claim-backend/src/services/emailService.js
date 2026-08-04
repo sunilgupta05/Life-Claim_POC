@@ -1,4 +1,5 @@
 const express = require("express");
+const appConfig = require('../config/configService');
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const Imap = require("imap");
@@ -13,7 +14,7 @@ const connection = require("../config/dbConfig");
 const con = connection;
 const app = express();
 const port = 5000;
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = appConfig.get('NODE_ENV') === 'production';
 
 /** Same DMS credentials as document upload — no hardcoded Alfresco passwords in source. */
 const getDmsBasicAuthHeader = () => {
@@ -29,15 +30,15 @@ const getDmsBasicAuthHeader = () => {
   return `Basic ${Buffer.from(`${dmsUserId}:${dmsPassword}`).toString('base64')}`;
 };
 const emailTlsInsecure =
-  process.env.EMAIL_TLS_INSECURE === 'true' ||
-  (!isProduction && process.env.EMAIL_TLS_INSECURE !== 'false');
+  appConfig.get('EMAIL_TLS_INSECURE') === 'true' ||
+  (!isProduction && appConfig.get('EMAIL_TLS_INSECURE') !== 'false');
 
 // IMAP configuration
 const imapConfig = {
   user: process.env.EMAIL_ID,
   password: process.env.EMAIL_PASS,
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
+  host: appConfig.get('EMAIL_HOST'),
+  port: appConfig.get('EMAIL_PORT'),
   tls: true,
   // Secure by default in production; allow explicit insecure mode for local/self-signed IMAP.
   tlsOptions: { rejectUnauthorized: !emailTlsInsecure },
@@ -143,7 +144,7 @@ const saveAttachmentToFileSystem = async (attachment, inwardId, countOfAttachmen
 
   fs.writeFileSync(attachmentPath, decodedContent);
 
-  const alfresco_API_URL = process.env.alfresco_API_URL;
+  const alfresco_API_URL = appConfig.get('alfresco_API_URL');
   const authHeader = getDmsBasicAuthHeader();
 
   const folderData = {
@@ -396,8 +397,8 @@ const listenToInbox = (config, onNewMail) => {
 
 // Start reading previous mails from inbox and listening to inbox.
 // For safety, this is DISABLED by default and only runs when EMAIL_ENABLED=true is set.
-if (process.env.EMAIL_ENABLED === "true") {
-  if (process.env.EMAIL_ID && process.env.EMAIL_PASS && process.env.EMAIL_HOST && process.env.EMAIL_PORT) {
+if (appConfig.get('EMAIL_ENABLED') === "true") {
+  if (process.env.EMAIL_ID && process.env.EMAIL_PASS && appConfig.get('EMAIL_HOST') && appConfig.get('EMAIL_PORT')) {
     try {
       readPreviousMails();
       // Start listening to the inbox

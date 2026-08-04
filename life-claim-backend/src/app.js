@@ -1,4 +1,5 @@
 require('dotenv').config();
+const appConfig = require('./config/configService');
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -17,6 +18,10 @@ const sequelize = require('./config/sequelize');
 const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/rolesRoutes');
 const authRoutes = require('./routes/authRoutes');
+const orgProfileRoutes = require('./routes/orgProfileRoutes');
+const orgProfileService = require('./services/orgProfileService');
+const configRoutes = require('./routes/configRoutes');
+const configService = require('./config/configService');
 const mailRoute = require('./routes/mail')
 const attachmentsRoute = require('./routes/attachment')
 const policyRoutes = require('./routes/policyRoutes')
@@ -68,14 +73,14 @@ const { httpMethodFilter } = require('./middleware/httpMethodFilter');
 const app = express();
 app.disable('x-powered-by');
 app.use(httpMethodFilter);
-if (process.env.TRUST_PROXY === 'true') {
+if (appConfig.get('TRUST_PROXY') === 'true') {
   app.set('trust proxy', 1);
 }
 const keycloak = getKeycloak();
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = appConfig.get('NODE_ENV') === 'production';
 const ENABLE_TEST_ROUTES =
-  process.env.ENABLE_TEST_ROUTES === 'true' || process.env.NODE_ENV !== 'production';
+  appConfig.get('ENABLE_TEST_ROUTES') === 'true' || appConfig.get('NODE_ENV') !== 'production';
 const parseCsv = (raw) =>
   String(raw || '')
     .split(',')
@@ -90,11 +95,11 @@ const toOrigin = (urlLike) => {
 };
 
 const runtimeAppOrigins = [
-  process.env.SERVER_IP && process.env.PORT
-    ? `http://${process.env.SERVER_IP}:${process.env.PORT}`
+  appConfig.get('SERVER_IP') && appConfig.get('PORT')
+    ? `http://${appConfig.get('SERVER_IP')}:${appConfig.get('PORT')}`
     : null,
-  process.env.SERVER_IP && process.env.PORT
-    ? `https://${process.env.SERVER_IP}:${process.env.PORT}`
+  appConfig.get('SERVER_IP') && appConfig.get('PORT')
+    ? `https://${appConfig.get('SERVER_IP')}:${appConfig.get('PORT')}`
     : null,
 ].filter(Boolean);
 
@@ -116,7 +121,7 @@ const DEV_CORS_ORIGINS = [
 
 // Production allowlist should come from env and should use public hostnames/domains.
 const PROD_CORS_ORIGINS = [];
-const configuredOriginsRaw = parseCsv(process.env.CORS_ALLOWED_ORIGINS);
+const configuredOriginsRaw = parseCsv(appConfig.get('CORS_ALLOWED_ORIGINS'));
 const hasWildcardCorsOrigin = configuredOriginsRaw.includes('*');
 if (hasWildcardCorsOrigin) {
   console.error('[security] CORS_ALLOWED_ORIGINS contains "*" which is not permitted; ignoring wildcard.');
@@ -126,7 +131,7 @@ const allowedOrigins = configuredOrigins.length
   ? configuredOrigins
   : (isProduction ? PROD_CORS_ORIGINS : DEV_CORS_ORIGINS);
 
-const keycloakOrigin = toOrigin(process.env.KEYCLOAK_URL || '');
+const keycloakOrigin = toOrigin(appConfig.get('KEYCLOAK_URL') || '');
 const cspConnectSrc = Array.from(
   new Set(
     [
@@ -231,7 +236,7 @@ app.use((req, res, next) => {
 
 // VAPT #26: reject auth requests over insecure transport in production to reduce replay/MITM risk.
 const REQUIRE_HTTPS_AUTH =
-  process.env.REQUIRE_HTTPS_AUTH === 'true' || process.env.NODE_ENV === 'production';
+  appConfig.get('REQUIRE_HTTPS_AUTH') === 'true' || appConfig.get('NODE_ENV') === 'production';
 const isSecureTransport = (req) => {
   if (req.secure) return true;
   const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
@@ -288,7 +293,7 @@ app.use((req, res, next) => {
   const xsrfToken = req.cookies?.['XSRF-TOKEN'];
   if (!xsrfToken) return next();
 
-  const useHttps = process.env.USE_HTTPS === 'true';
+  const useHttps = appConfig.get('USE_HTTPS') === 'true';
   res.cookie('XSRF-TOKEN', xsrfToken, {
     httpOnly: true,
     secure: useHttps || isProduction,
@@ -309,6 +314,10 @@ app.use(injectBearerFromSession);
 
 // Routes that don't need Keycloak protection
 app.use('/api/auth', authRoutes);
+
+// Active-organization profile (roadmap 0.2) — public so the login page can load
+// branding before authentication. Read-only; safe to expose. Preloaded below.
+app.use('/api/org-profile', orgProfileRoutes);
 
 // Keycloak must run before requireApiAuth and protected routes so Bearer tokens populate req.kauth.
 // Scope it to /api so non-API routes (/, static assets) never hit auth middleware.
@@ -377,13 +386,17 @@ app.use('/api/dashboard', dashboardActivityRoutes);
 // Admin routes (dashboard + audit/user management)
 app.use('/api/superuser', adminRoutes);
 
+// Runtime configuration admin API (roadmap 0.3). Superuser-only (enforced inside
+// the router). Edits hot-reload immediately via the config service.
+app.use('/api/config', configRoutes);
+
 // Centralized error handler: prevent leaking stack traces/internal details to clients.
 // In non-production we still return a short detail string for debugging convenience.
 app.use((err, req, res, next) => {
   const status = Number(err?.status) || 500;
   const message = status >= 500 ? 'Internal server error' : (err?.message || 'Request failed');
   const body = { message };
-  const exposeErrorDetail = process.env.EXPOSE_ERROR_DETAIL === 'true';
+  const exposeErrorDetail = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
   if (exposeErrorDetail && err?.message) {
     body.detail = err.message;
   }
@@ -391,9 +404,22 @@ app.use((err, req, res, next) => {
   res.status(status).json(body);
 });
 
+// Warm the centralized config cache at startup (roadmap 0.3). Best-effort:
+// if app_config isn't migrated yet, the service simply falls back to .env.
+configService.init().catch((err) => {
+  console.warn('[config] startup init skipped:', err?.message);
+});
+
+// Preload the active-organization profile at startup (roadmap 0.2).
+// Best-effort: failures fall back to built-in defaults inside the service, so
+// this never blocks or breaks boot even if migration 0003 hasn't been run.
+orgProfileService.load().catch((err) => {
+  console.warn('[orgProfile] startup preload skipped:', err?.message);
+});
+
 // Periodic audit reconciliation:
 // close stale open sessions so timeout/abrupt-close sessions are eventually marked logged out.
-const AUDIT_RECONCILE_MS = Number(process.env.AUDIT_RECONCILE_MS || 5 * 60 * 1000);
+const AUDIT_RECONCILE_MS = Number(appConfig.get('AUDIT_RECONCILE_MS') || 5 * 60 * 1000);
 setInterval(async () => {
   try {
     await closeAllStaleSessions();
@@ -452,8 +478,8 @@ if (ENABLE_TEST_ROUTES) {
 //app.use('/auth/auth', authRoutes);
 
 // Deployment mode: backend serves built frontend (SPA support).
-const frontendBuildPath = process.env.FRONTEND_BUILD_PATH
-  ? path.resolve(process.env.FRONTEND_BUILD_PATH)
+const frontendBuildPath = appConfig.get('FRONTEND_BUILD_PATH')
+  ? path.resolve(appConfig.get('FRONTEND_BUILD_PATH'))
   : path.join(__dirname, '../../life-claim-frontend/build');
 if (fs.existsSync(frontendBuildPath)) {
   app.use(express.static(frontendBuildPath));

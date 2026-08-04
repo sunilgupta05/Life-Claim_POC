@@ -1,0 +1,45 @@
+# Redis for Life Claims backend (roadmap 0.4). RUN THIS ON THE .62 SERVER.
+# Backs express-session and the config invalidation bus when REDIS_URL is set.
+#
+#   Start:   docker compose -f docker-compose.redis.yml up -d
+#   Stop:    docker compose -f docker-compose.redis.yml down
+#   Logs:    docker compose -f docker-compose.redis.yml logs -f
+#
+# REDIS_PASSWORD is read from this folder's .env file (same file the backend uses).
+# Hardening: password required, AOF persistence so data survives restarts,
+# auto-restart, bounded memory. Reachable on the LAN at 192.168.60.62:6379 (same
+# model as the MySQL/Keycloak services already on .62), so the app connects via
+# REDIS_URL=redis://:<pw>@192.168.60.62:6379.
+# SECURITY: keep port 6379 firewalled to trusted hosts only. If the backend runs
+# ON .62 alongside Redis, prefer binding to 127.0.0.1 (change the ports line below)
+# and use REDIS_URL=redis://:<pw>@127.0.0.1:6379.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: life-claim-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass "${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}"
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    ports:
+      # Host port 6380 (6379 is already used by the chatbot stack's redis on .62).
+      # Container still listens on 6379 internally. App connects via
+      # 192.168.60.62:6380. Firewall this port to trusted hosts.
+      - "6380:6379"
+    volumes:
+      - life-claim-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
+
+volumes:
+  life-claim-redis-data:
+    name: life-claim-redis-data

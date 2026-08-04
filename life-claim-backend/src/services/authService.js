@@ -1,5 +1,6 @@
 // backend/services/authService.js
 const bcrypt = require('bcrypt');
+const appConfig = require('../config/configService');
 const jwtUtil = require('../util/jwtUtil');
 const userDao = require('../dataAccess/userDao');
 const logger = require('../config/logConfig');
@@ -7,13 +8,13 @@ const crypto = require('crypto'); // Added crypto for session generation
 const { recordLogin, recordLogout, getLastLoginBefore } = require('./auditLogService');
 const { isRetiredAdminUsername } = require('../util/superuserRoles');
 const { verifyRecaptchaToken } = require('./recaptchaService');
-const CLOSE_LOGOUT_GRACE_MS = Number(process.env.CLOSE_LOGOUT_GRACE_MS || 8000);
+const CLOSE_LOGOUT_GRACE_MS = Number(appConfig.get('CLOSE_LOGOUT_GRACE_MS') || 8000);
 const pendingCloseLogoutTimers = new Map();
-const SINGLE_SESSION_ENFORCED = process.env.SINGLE_SESSION_ENFORCED !== 'false';
-const isProduction = process.env.NODE_ENV === 'production';
-const ACCOUNT_LOCKOUT_MAX_ATTEMPTS = Number(process.env.ACCOUNT_LOCKOUT_MAX_ATTEMPTS || 5);
+const SINGLE_SESSION_ENFORCED = appConfig.get('SINGLE_SESSION_ENFORCED') !== 'false';
+const isProduction = appConfig.get('NODE_ENV') === 'production';
+const ACCOUNT_LOCKOUT_MAX_ATTEMPTS = Number(appConfig.get('ACCOUNT_LOCKOUT_MAX_ATTEMPTS') || 5);
 const ACCOUNT_LOCKOUT_DURATION_MS = Number(
-  process.env.ACCOUNT_LOCKOUT_DURATION_MS || 15 * 60 * 1000
+  appConfig.get('ACCOUNT_LOCKOUT_DURATION_MS') || 15 * 60 * 1000
 );
 const INVALID_LOGIN_MESSAGE = 'Invalid username or password.';
 // Precomputed bcrypt hash ("dummy-password") to reduce user-existence timing differences.

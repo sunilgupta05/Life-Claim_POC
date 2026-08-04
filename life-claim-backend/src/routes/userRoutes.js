@@ -1,4 +1,5 @@
 const express = require('express');
+const appConfig = require('../config/configService');
 const userService = require('../services/authService');
 const authMiddleware = require('../middleware/authMiddleware');
 const authorize = require('../middleware/authorize');
@@ -16,9 +17,9 @@ const {
 const router = express.Router();
 
 const loginCookieOptions = () => {
-  const useHttps = process.env.USE_HTTPS === 'true';
+  const useHttps = appConfig.get('USE_HTTPS') === 'true';
   // Ensure Secure is set automatically on HTTPS, without breaking local HTTP workflows.
-  const secure = process.env.NODE_ENV === 'production' ? true : (useHttps ? true : 'auto');
+  const secure = appConfig.get('NODE_ENV') === 'production' ? true : (useHttps ? true : 'auto');
   return {
     httpOnly: true,
     secure,

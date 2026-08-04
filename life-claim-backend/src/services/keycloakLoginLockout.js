@@ -6,14 +6,15 @@
  * Multi-node: use Redis or sticky sessions + shared store if you scale horizontally.
  */
 const logger = require('../config/logConfig');
+const appConfig = require('../config/configService');
 
 const maxAttempts = () =>
-  Number(process.env.ACCOUNT_LOCKOUT_MAX_ATTEMPTS || process.env.KEYCLOAK_LOCKOUT_MAX_ATTEMPTS || 5);
+  Number(appConfig.get('ACCOUNT_LOCKOUT_MAX_ATTEMPTS') || appConfig.get('KEYCLOAK_LOCKOUT_MAX_ATTEMPTS') || 5);
 
 const lockDurationMs = () =>
-  Number(process.env.ACCOUNT_LOCKOUT_DURATION_MS || process.env.KEYCLOAK_LOCKOUT_DURATION_MS || 15 * 60 * 1000);
+  Number(appConfig.get('ACCOUNT_LOCKOUT_DURATION_MS') || appConfig.get('KEYCLOAK_LOCKOUT_DURATION_MS') || 15 * 60 * 1000);
 
-const enabled = () => process.env.KEYCLOAK_LOCKOUT_ENABLED !== 'false';
+const enabled = () => appConfig.get('KEYCLOAK_LOCKOUT_ENABLED') !== 'false';
 
 /** @type {Map<string, { failures: number, lockoutUntil: number }>} */
 const store = new Map();

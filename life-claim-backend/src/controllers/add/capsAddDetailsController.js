@@ -1,8 +1,9 @@
 const CapsAddDetailsDoa = require('../../dataAccess/add/capsAddDetailsDao');
+const appConfig = require('../../config/configService');
 const { resetAddDemoData } = require('../../dataAccess/add/addDemoResetDao');
 const { validateAddExcelPayload } = require('../../util/addDataEntryValidation');
 const { getUserContext } = require('../../middleware/claimAccessMiddleware');
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 const internalError = (res, error) =>
   res.status(500).json({
     success: false,
@@ -168,7 +169,7 @@ const assignCasesByCaseIdsController = async (req, res, next) => {
 };
 
 const resetAddDemoDataController = async (req, res) => {
-    if (process.env.ADD_DEMO_RESET_ENABLED === 'false') {
+    if (appConfig.get('ADD_DEMO_RESET_ENABLED') === 'false') {
         return res.status(403).json({
             success: false,
             error: 'ADD demo reset is disabled on this environment.',

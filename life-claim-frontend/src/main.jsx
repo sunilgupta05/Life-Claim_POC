@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { hydrateCompanyBrand } from './config/companyBrand'
 
 try {
   const saved = localStorage.getItem('life-claims-theme')
@@ -13,8 +14,21 @@ try {
 
 import App from './App.jsx'
 
-createRoot(document.getElementById('root')).render(
+const root = createRoot(document.getElementById('root'))
+const tree = (
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 )
+
+// Render immediately with the built-in branding defaults (no startup delay),
+// then overlay this deployment's org profile (roadmap 0.2). We only re-render
+// if the loaded profile actually differs from the defaults, so the default
+// deployment renders exactly once — behaviour unchanged.
+root.render(tree)
+
+hydrateCompanyBrand()
+  .then((changed) => {
+    if (changed) root.render(tree)
+  })
+  .catch(() => {})

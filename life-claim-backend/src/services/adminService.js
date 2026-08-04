@@ -1,10 +1,11 @@
 const db = require("../config/dbConfig");
+const appConfig = require('../config/configService');
 const logger = require("../config/logConfig");
 const StatusHistory = require("../models/StatusHistory");
 const claimsService = require("./claimsService");
 const TRACKED_USERS = ["sujal", "simran", "kishor"];
 const TRACKED_USERS_WITH_ALIAS = ["sujal", "simran", "kishor", "kishore"];
-const SESSION_TTL_MINUTES = Number(process.env.AUDIT_SESSION_TTL_MINUTES || 5);
+const SESSION_TTL_MINUTES = Number(appConfig.get('AUDIT_SESSION_TTL_MINUTES') || 5);
 
 /**
  * Admin-level summary for the platform overview dashboard.

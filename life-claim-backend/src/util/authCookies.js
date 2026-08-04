@@ -1,10 +1,11 @@
 const { extractKeycloakRoles, extractKeycloakUsername } = require('./keycloakRoles');
+const appConfig = require('../config/configService');
 
 function cookieBaseOptions() {
-  const useHttps = process.env.USE_HTTPS === 'true';
+  const useHttps = appConfig.get('USE_HTTPS') === 'true';
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production' ? true : (useHttps ? true : 'auto'),
+    secure: appConfig.get('NODE_ENV') === 'production' ? true : (useHttps ? true : 'auto'),
     sameSite: 'lax',
     path: '/api',
   };

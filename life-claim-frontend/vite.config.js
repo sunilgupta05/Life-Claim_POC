@@ -55,5 +55,14 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // Vitest config (roadmap 0.5 — test harness skeleton). Picked up by Vitest
+    // from this same file; has no effect on `vite dev`/`vite build`.
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: './src/test/setup.js',
+      include: ['src/**/*.{test,spec}.{js,jsx}'],
+      css: false,
+    },
   }
 })

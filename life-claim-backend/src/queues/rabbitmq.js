@@ -1,4 +1,5 @@
 const amqplib = require('amqplib');
+const appConfig = require('../config/configService');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -11,7 +12,7 @@ let channel;
  * If RABBITMQ_URL is the management UI (http…:15672/), use the same host for AMQP.
  */
 function resolveRabbitAmqpUrl() {
-  const raw = (process.env.RABBITMQ_URL || '').trim();
+  const raw = (appConfig.get('RABBITMQ_URL') || '').trim();
   if (!raw) {
     throw new Error('RABBITMQ_URL is not configured in environment');
   }
@@ -28,7 +29,7 @@ function resolveRabbitAmqpUrl() {
   if (!host) {
     throw new Error('RABBITMQ_URL has no hostname');
   }
-  const amqpPort = (process.env.RABBITMQ_AMQP_PORT || '5672').trim();
+  const amqpPort = (appConfig.get('RABBITMQ_AMQP_PORT') || '5672').trim();
   const user = process.env.RABBITMQ_USER || 'guest';
   const pass = process.env.RABBITMQ_PASS || 'guest';
   return `amqp://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${amqpPort}`;

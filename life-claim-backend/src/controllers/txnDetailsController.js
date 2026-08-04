@@ -1,4 +1,5 @@
 const { error } = require('winston');
+const appConfig = require('../config/configService');
 
 const { getTransactionApiDBDetailsService, saveTransactionApiDetailsService } = require('../services/transactionApiDetailsService');
 const {
@@ -7,7 +8,7 @@ const {
 } = require('../services/transactionApiClient');
 
 console.log('txnDetailsController >> transaction service:', getTransactionApiBase());
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 
 // Transaction API calling 
 const getTxnDetailsController = async (req, res) => {

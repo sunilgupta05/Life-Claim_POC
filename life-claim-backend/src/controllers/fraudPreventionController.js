@@ -1,6 +1,7 @@
 const safeCityPincodeCheckDoa = require('../dataAccess/FraudPrevention/safeCityPincodeCheckDoa');
+const appConfig = require('../config/configService');
 const fraudPreventionDao = require('../dataAccess/FraudPrevention/fraudPreventionDao');
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 
 const internalError = (res, error) =>
   res.status(500).json({

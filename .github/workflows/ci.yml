@@ -1,0 +1,60 @@
+# CI skeleton (roadmap 0.5): lint + test on every push and PR.
+# Three independent jobs, one per app. Add build/deploy stages later.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (Jest + Supertest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: life-claim-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: life-claim-backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  frontend:
+    name: Frontend (ESLint + Vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: life-claim-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: life-claim-frontend/package-lock.json
+      - run: npm ci
+        # Lint is non-blocking for now: the existing codebase has a large backlog
+        # of pre-existing eslint errors (~1400). Keeping it visible in CI surfaces
+        # the debt without failing every build; flip to blocking once burned down.
+      - run: npm run lint
+        continue-on-error: true
+      - run: npm test
+
+  rules:
+    name: Rules engine (Maven / JUnit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: life-claim-rules
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - run: mvn -B test

@@ -1,4 +1,5 @@
 const axios = require('axios');
+const appConfig = require('../config/configService');
 
 /**
  * Transaction API (Life Asia) base URL.
@@ -6,8 +7,8 @@ const axios = require('axios');
  */
 const getTransactionApiBase = () =>
   (
-    process.env.TXN_API_BASE_URL ||
-    `http://${process.env.TXN_HOST || process.env.DB_HOST || 'localhost'}:${process.env.TXN_PORT || '3003'}`
+    appConfig.get('TXN_API_BASE_URL') ||
+    `http://${appConfig.get('TXN_HOST') || process.env.DB_HOST || 'localhost'}:${appConfig.get('TXN_PORT') || '3003'}`
   ).replace(/\/$/, '');
 
 /** Pad policy numbers to 8 digits for Life Asia policySearch. */

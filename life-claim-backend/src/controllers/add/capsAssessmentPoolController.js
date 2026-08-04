@@ -1,8 +1,9 @@
 const capsAssessmentPoolDOA = require('../../dataAccess/add/capsAssessmentPoolDoa');
+const appConfig = require('../../config/configService');
 const { extractKeycloakUsername } = require('../../util/keycloakRoles');
 
 const dataEnrichmentService = require('../../services/add/dataEnrichmentService');
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 const internalError = (res, error) =>
   res.status(500).json({
     success: false,

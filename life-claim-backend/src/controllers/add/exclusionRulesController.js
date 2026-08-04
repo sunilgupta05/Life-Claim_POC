@@ -1,6 +1,7 @@
 const { checkForExclusionRule } = require('../../services/add/exclusionRulesService');
+const appConfig = require('../../config/configService');
 const { upsertAssessorPoolCase } = require('../../dataAccess/add/capsAssessorPoolCasesDao');
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 const internalError = (res, error) =>
   res.status(500).json({
     success: false,

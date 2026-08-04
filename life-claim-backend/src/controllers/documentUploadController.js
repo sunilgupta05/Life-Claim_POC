@@ -1,12 +1,13 @@
 const fs = require('fs');
+const appConfig = require('../config/configService');
 const path = require('path');
 const formData = require('form-data');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const uploadedDocumentsService = require('../services/uploadedDocumentsService');
-const DOCUMENT_STORAGE = process.env.ENVIRONMENT1 === 'PRODUCTION' ? process.env.PROD_DOCUMENT_STORAGE_LOCATION : process.env.DEV_DOCUMENT_STORAGE_LOCATION;
-const isProduction = process.env.NODE_ENV === 'production';
-const exposeErrorDetails = process.env.EXPOSE_ERROR_DETAIL === 'true';
+const DOCUMENT_STORAGE = appConfig.get('ENVIRONMENT1') === 'PRODUCTION' ? appConfig.get('PROD_DOCUMENT_STORAGE_LOCATION') : appConfig.get('DEV_DOCUMENT_STORAGE_LOCATION');
+const isProduction = appConfig.get('NODE_ENV') === 'production';
+const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 const INLINE_PREVIEW_MIME_TYPES = [
   'application/pdf',
   'image/jpeg',
@@ -94,7 +95,7 @@ exports.previewDocument = async (req, res) => {
     if (String(APITicket).includes('ERROR')) {
       return res.status(500).json(safeErrorResponse('Failed to preview document', APITicket));
     }
-    const alfrescoURL = `http://${process.env.DOCUMENT_VIEWER_IP}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${nodeId}/content`;
+    const alfrescoURL = `http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${nodeId}/content`;
     const response = await axios.get(alfrescoURL, {
       headers: {
         Authorization: `Basic ${APITicket}`,
@@ -130,7 +131,7 @@ exports.UpdateUploadedDocumentTable = async (claimNumber, fileName, documentType
 /** Checking duplicate function. */
 const checkDuplicate = async (folderID, fileName, APITicket) => {
   try {
-    const getFilesInFolderRes = await fetch(`http://${process.env.DOCUMENT_VIEWER_IP}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${folderID}/children`, {
+    const getFilesInFolderRes = await fetch(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${folderID}/children`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -182,7 +183,7 @@ exports.uploadDocument = async (req, res, next) => {
     if (APITicket.includes('ERROR')) {
       return res.status(500).json(safeErrorResponse("Something went wrong", APITicket));
     }
-    const getFolderByClaimNumberResponse = await fetch(`http://${process.env.DOCUMENT_VIEWER_IP}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${DOCUMENT_STORAGE}/children`, {
+    const getFolderByClaimNumberResponse = await fetch(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${DOCUMENT_STORAGE}/children`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -216,7 +217,7 @@ exports.uploadDocument = async (req, res, next) => {
     // if folder does not exist for creating new folder based on ClaimNumber
     if (!folderID) {
       /** Createing New Folder*/
-      const createFolderResponse = await fetch(`http://${process.env.DOCUMENT_VIEWER_IP}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${DOCUMENT_STORAGE}/children`, {
+      const createFolderResponse = await fetch(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${DOCUMENT_STORAGE}/children`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -259,7 +260,7 @@ exports.uploadDocument = async (req, res, next) => {
         const currentDate = new Date();
         const form = new formData();
         form.append('filedata', fs.createReadStream(filePath), originalName);
-        await axios.post(`http://${process.env.DOCUMENT_VIEWER_IP}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${folderID}/children`,
+        await axios.post(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${folderID}/children`,
           form,
           {
             headers: {
@@ -326,7 +327,7 @@ const getAuthTicketForDMS = async () => {
     return 'ERROR: DMS credentials are not configured. Set DMS_USER_ID and DMS_PASSWORD.';
   }
 
-  const getTicketResponse = await fetch(`http://${process.env.DOCUMENT_VIEWER_IP}/alfresco/api/-default-/public/authentication/versions/1/tickets`, {
+  const getTicketResponse = await fetch(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/authentication/versions/1/tickets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

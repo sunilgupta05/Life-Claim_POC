@@ -1,4 +1,5 @@
 const IntimationDetail = require("../models/IntimationDetail");
+const appConfig = require('../config/configService');
 const TrapScore = require("../models/TrapScore");
 const CauseEvent = require("../models/CauseEvent");
 const PayeeDetail = require("../models/PayeeDetail");
@@ -532,7 +533,7 @@ const updateClaim = async (req, res) => {
     console.log(error);
     res.status(500).json({
       message: "Internal server error",
-      ...(process.env.NODE_ENV !== "production" ? { detail: error?.message || String(error) } : {}),
+      ...(appConfig.get('NODE_ENV') !== "production" ? { detail: error?.message || String(error) } : {}),
     });
   }
 };

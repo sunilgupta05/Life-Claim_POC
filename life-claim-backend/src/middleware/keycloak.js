@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const appConfig = require('../config/configService');
 const session = require('express-session');
 const Keycloak = require('keycloak-connect');
 const authService = require('../services/authService');
@@ -6,13 +7,13 @@ const jwt = require('jsonwebtoken');
 const { readAccessToken } = require('../util/authCookies');
 
 let keycloak;
-const SESSION_IDLE_TIMEOUT_MINUTES = Number(process.env.SESSION_IDLE_TIMEOUT_MINUTES || 5);
+const SESSION_IDLE_TIMEOUT_MINUTES = Number(appConfig.get('SESSION_IDLE_TIMEOUT_MINUTES') || 5);
 const SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000;
 
 // Redis-backed session store when REDIS_URL is configured (survives restarts, works
 // across multiple instances). Falls back to the in-memory store for local dev when unset.
 function buildSessionStore() {
-  if (!process.env.REDIS_URL) {
+  if (!appConfig.get('REDIS_URL')) {
     console.warn(
       '[security] REDIS_URL is not set — using in-memory session store (lost on restart, ' +
         'not safe for multiple instances). Set REDIS_URL in production.'
@@ -21,8 +22,13 @@ function buildSessionStore() {
   }
   try {
     const { createClient } = require('redis');
-    const { RedisStore } = require('connect-redis');
-    const redisClient = createClient({ url: process.env.REDIS_URL });
+    // connect-redis export shape varies by version: v7.1.1 (installed) exposes the
+    // class only as `default` under CJS; other versions add a named `RedisStore`.
+    // Resolve defensively so the store is never silently undefined (which would
+    // throw and fall back to MemoryStore even with REDIS_URL set).
+    const connectRedis = require('connect-redis');
+    const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
+    const redisClient = createClient({ url: appConfig.get('REDIS_URL') });
     redisClient.on('error', (err) => console.error('[security] Redis session store error:', err.message));
     redisClient.connect().catch((err) => {
       console.error('[security] Failed to connect to Redis for sessions:', err.message);
@@ -45,7 +51,7 @@ const sessionSecret = (() => {
   if (process.env.SESSION_SECRET) {
     return process.env.SESSION_SECRET;
   }
-  if (process.env.NODE_ENV === 'production') {
+  if (appConfig.get('NODE_ENV') === 'production') {
     console.error(
       '[security] SESSION_SECRET is not set — using ephemeral per-process secret; set SESSION_SECRET in .env for stable sessions across restarts.'
     );
@@ -61,7 +67,7 @@ const sessionConfig = {
   store: memoryStore,
   cookie: {
     // Use secure cookies automatically on HTTPS requests without breaking local HTTP workflows.
-    secure: process.env.NODE_ENV === 'production' ? true : 'auto',
+    secure: appConfig.get('NODE_ENV') === 'production' ? true : 'auto',
     httpOnly: true,
     sameSite: 'lax',
     path: '/api',
@@ -77,9 +83,9 @@ function getKeycloak() {
   keycloak = new Keycloak(
     { store: memoryStore },
     {
-      realm: process.env.KEYCLOAK_REALM || 'life-claims',
-      'auth-server-url': process.env.KEYCLOAK_URL || 'http://localhost:8080',
-      resource: process.env.KEYCLOAK_CLIENT_ID || 'life-claims-frontend',
+      realm: appConfig.get('KEYCLOAK_REALM') || 'life-claims',
+      'auth-server-url': appConfig.get('KEYCLOAK_URL') || 'http://localhost:8080',
+      resource: appConfig.get('KEYCLOAK_CLIENT_ID') || 'life-claims-frontend',
       'bearer-only': true,
       'ssl-required': 'external',
       credentials: {

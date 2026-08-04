@@ -1,4 +1,5 @@
-const MAX_UPLOAD_ROWS = Number(process.env.ADD_UPLOAD_MAX_ROWS || 5000);
+const appConfig = require('../config/configService');
+const MAX_UPLOAD_ROWS = Number(appConfig.get('ADD_UPLOAD_MAX_ROWS') || 5000);
 const POLICY_NUMBER_PATTERN = /^[A-Za-z0-9/_-]{1,50}$/;
 const SOURCE_MAX_LEN = 120;
 const REMARKS_MAX_LEN = 2000;

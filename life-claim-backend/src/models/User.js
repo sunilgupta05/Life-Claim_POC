@@ -1,11 +1,12 @@
 // src/models/user.js
 const { DataTypes } = require('sequelize');
+const appConfig = require('../config/configService');
 const sequelize = require('../config/sequelize');
 const bcrypt = require('bcrypt');
 const BCRYPT_MIN_ROUNDS = 10;
 const BCRYPT_SALT_ROUNDS = Math.max(
   BCRYPT_MIN_ROUNDS,
-  Number(process.env.BCRYPT_SALT_ROUNDS || 12)
+  Number(appConfig.get('BCRYPT_SALT_ROUNDS') || 12)
 );
 
 const User = sequelize.define('User', {
