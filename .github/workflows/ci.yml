@@ -1,10 +1,15 @@
-# CI skeleton (roadmap 0.5): lint + test on every push and PR.
-# Three independent jobs, one per app. Add build/deploy stages later.
+# CI (roadmap 0.5): lint + test (+coverage) on every push and PR.
+# Three independent jobs, one per app.
 name: CI
 
 on:
   push:
   pull_request:
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -21,7 +26,15 @@ jobs:
           cache: npm
           cache-dependency-path: life-claim-backend/package-lock.json
       - run: npm ci
-      - run: npm test
+      # Runs the suite AND enforces the coverage thresholds in jest.config.js.
+      - run: npm run test:coverage
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: life-claim-backend/coverage/
+          if-no-files-found: ignore
 
   frontend:
     name: Frontend (ESLint + Vitest)
@@ -42,7 +55,15 @@ jobs:
         # the debt without failing every build; flip to blocking once burned down.
       - run: npm run lint
         continue-on-error: true
-      - run: npm test
+      # Runs the suite AND enforces the coverage thresholds in vite.config.js.
+      - run: npm run test:coverage
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: life-claim-frontend/coverage/
+          if-no-files-found: ignore
 
   rules:
     name: Rules engine (Maven / JUnit)

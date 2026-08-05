@@ -63,6 +63,20 @@ export default defineConfig(({ mode }) => {
       setupFiles: './src/test/setup.js',
       include: ['src/**/*.{test,spec}.{js,jsx}'],
       css: false,
+      coverage: {
+        provider: 'v8',
+        reporter: ['text-summary', 'lcov'],
+        // Scope coverage to the modules under test today; widen as the suite grows.
+        include: [
+          'src/util/percentDisplay.js',
+          'src/util/statusBadgeTone.js',
+          'src/util/workflowRoles.js',
+          'src/util/claimDaysOpen.js',
+          'src/components/BrandLogo.jsx',
+        ],
+        // Enforced in CI via `npm run test:coverage`.
+        thresholds: { statements: 85, branches: 70, functions: 95, lines: 85 },
+      },
     },
   }
 })
