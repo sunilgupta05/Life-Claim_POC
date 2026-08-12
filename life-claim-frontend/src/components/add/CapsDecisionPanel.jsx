@@ -4,6 +4,7 @@ import { saveDecision, saveFindings } from '../../services/add/decisionService'
 import { SectionTitle, PrimaryBtn, useAddUiTokens } from './AddUi'
 import { actionButtonStyle } from '../../ui/pageTokens'
 import { isAssessorReadOnly, addCaseStatusLabel } from '../../util/addCaseStatus'
+import { useAuth } from '../../context/AuthContext'
 import { downloadScnNoticePdf, SCN_REPLY_MAX_DAYS } from '../../util/downloadScnNoticePdf'
 
 const emptyRow = () => ({
@@ -70,6 +71,11 @@ export default function CapsDecisionPanel({
   toast,
 }) {
   const T = useAddUiTokens()
+  const { can } = useAuth()
+  // Fine-grained ADD gating (roadmap 1.5 follow-on): findings need assessment.act,
+  // the final decision needs decision.act. Superuser bypasses via can().
+  const canFindings = can('assessment.act')
+  const canDecision = can('decision.act')
   const inputStyle = {
     width: '100%',
     minWidth: '72px',
@@ -385,8 +391,8 @@ export default function CapsDecisionPanel({
         </table>
       </div>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        <PrimaryBtn variant="secondary" onClick={() => setRows((p) => [...p, emptyRow()])} disabled={readOnly}>+ Add row</PrimaryBtn>
-        <PrimaryBtn onClick={handleSaveFindings} disabled={saving || readOnly}>Save findings</PrimaryBtn>
+        <PrimaryBtn variant="secondary" onClick={() => setRows((p) => [...p, emptyRow()])} disabled={readOnly || !canFindings}>+ Add row</PrimaryBtn>
+        <PrimaryBtn onClick={handleSaveFindings} disabled={saving || readOnly || !canFindings}>Save findings</PrimaryBtn>
       </div>
 
       <SectionTitle>Main decision</SectionTitle>
@@ -427,7 +433,7 @@ export default function CapsDecisionPanel({
         </div>
       </div>
       <div style={{ marginTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <PrimaryBtn onClick={handleSaveDecision} disabled={saving || readOnly}>
+        <PrimaryBtn onClick={handleSaveDecision} disabled={saving || readOnly || !canDecision}>
           {saving ? 'Saving…' : 'Save final decision'}
         </PrimaryBtn>
         {showScnPdf && scnDownloadBtn}

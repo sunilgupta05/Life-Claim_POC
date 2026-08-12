@@ -18,6 +18,14 @@ module.exports = {
     'src/config/configService.js',
     'src/config/configBus.js',
     'src/db/migrator.js',
+    'src/services/rbacService.js',
+    'src/middleware/requirePermission.js',
+    'src/auth/authMethod.js',
+    'src/auth/roleMapping.js',
+    'src/auth/sessionIssuer.js',
+    'src/auth/providers/ldapProvider.js',
+    'src/auth/providers/oidcProvider.js',
+    'src/auth/providers/samlProvider.js',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text-summary', 'lcov'],
@@ -40,6 +48,35 @@ module.exports = {
     },
     './src/db/migrator.js': {
       statements: 15, branches: 9, functions: 18, lines: 15,
+    },
+    // RBAC resolution logic is unit-tested; the DB write paths need real infra,
+    // so this is a regression floor covering the pure/read paths (roadmap 1.1).
+    './src/services/rbacService.js': {
+      statements: 42, branches: 40, functions: 38, lines: 38,
+    },
+    './src/middleware/requirePermission.js': {
+      statements: 90, branches: 80, functions: 100, lines: 90,
+    },
+    // Pluggable-auth resolver + role mapping are pure and well-covered (1.4).
+    './src/auth/authMethod.js': {
+      statements: 90, branches: 80, functions: 90, lines: 90,
+    },
+    './src/auth/roleMapping.js': {
+      statements: 90, branches: 85, functions: 100, lines: 90,
+    },
+    // Provider login flows are exercised via mocked IdP libraries (1.4). Live
+    // IdP integration testing happens at deploy time; these are regression floors.
+    './src/auth/sessionIssuer.js': {
+      statements: 90, branches: 65, functions: 90, lines: 90,
+    },
+    './src/auth/providers/ldapProvider.js': {
+      statements: 85, branches: 60, functions: 60, lines: 85,
+    },
+    './src/auth/providers/oidcProvider.js': {
+      statements: 78, branches: 65, functions: 90, lines: 82,
+    },
+    './src/auth/providers/samlProvider.js': {
+      statements: 80, branches: 50, functions: 90, lines: 82,
     },
   },
 };

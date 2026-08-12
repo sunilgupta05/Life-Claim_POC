@@ -6,13 +6,15 @@
 
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
-const authorize = require('../middleware/authorize');
+const requirePermission = require('../middleware/requirePermission');
 const { listConfig, upsertConfig, deleteConfig } = require('../controllers/configController');
 
 const router = express.Router();
 
+// Authenticate, then gate on the config-admin permission (roadmap 1.2). Only
+// superuser holds admin.config.manage, so this stays superuser-only as before.
 router.use(authMiddleware.authenticate);
-router.use(authorize('superuser', 'super user'));
+router.use(requirePermission('admin.config.manage'));
 
 router.get('/', listConfig);
 router.put('/:key', upsertConfig);

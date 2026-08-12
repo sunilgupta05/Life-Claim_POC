@@ -201,11 +201,29 @@ const scheduleLogoutOnCloseByToken = async (token) => {
   }
 };
 
+// Auth methods whose local JWTs are self-contained (roadmap 1.4): the user was
+// validated by an external IdP (LDAP/OIDC/SAML) and may not exist in the local
+// `users` table, so the token carries the identity/roles and we trust it here.
+const EXTERNAL_AUTH_SOURCES = new Set(['ldap', 'oidc', 'saml']);
+
 const authenticateUser = async (token) => {
   const decodedToken = jwtUtil.verify(token);
 
   if (!decodedToken) {
     throw new Error('Invalid token');
+  }
+
+  // Externally-authenticated (IdP) session: no local users-table lookup. This
+  // branch only triggers for tokens minted with an `authSource` claim; ordinary
+  // local/keycloak tokens have no such claim and take the unchanged path below.
+  if (decodedToken.authSource && EXTERNAL_AUTH_SOURCES.has(decodedToken.authSource)) {
+    return {
+      id: decodedToken.userId || null,
+      username: decodedToken.username,
+      roles: Array.isArray(decodedToken.roles) ? decodedToken.roles : [],
+      email: decodedToken.email || null,
+      authSource: decodedToken.authSource,
+    };
   }
 
   const user = await userDao.getUserById(decodedToken.userId);

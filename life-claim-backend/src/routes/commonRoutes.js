@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const authorize = require('../middleware/authorize');
-const { protect, hasAnyRole } = require('../middleware/keycloak');
+const requirePermission = require('../middleware/requirePermission');
+const { protect } = require('../middleware/keycloak');
 const userController = require('../controllers/userController');
 const Email_fax_mobile_SearchController = require('../controllers/email_fax_mobile_SearchController');
 const email_fax_contactController = require('../controllers/email_fax_contactController');
@@ -24,9 +24,11 @@ const {
   validateGeneralInfoUpdateBody,
 } = require('../middleware/requestValidation');
 
-const operationalRoles = ['Pre Assessor', 'Assessor', 'Verifier'];
-const superuserOnly = [authMiddleware.authenticate, authorize('superuser', 'super user')];
-const operationalOnly = [protect(hasAnyRole(operationalRoles))];
+// Permission-checked guards (roadmap 1.2). superuserOnly stays superuser-only
+// (only superuser holds admin.users.manage); operationalOnly keeps protect() for
+// auth and gates on claims.view (held by all three operational roles today).
+const superuserOnly = [authMiddleware.authenticate, requirePermission('admin.users.manage')];
+const operationalOnly = [protect(), requirePermission('claims.view')];
 
 router.get('/users', ...superuserOnly, userController.getUsers);
 router.post('/user', ...superuserOnly, validateCreateUserBody, userController.createUser);

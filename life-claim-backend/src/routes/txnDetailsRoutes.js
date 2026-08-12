@@ -1,11 +1,13 @@
 const express = require('express');
 const txnDetailsController = require('../controllers/txnDetailsController');
-const { protect, hasAnyRole } = require('../middleware/keycloak');
+const { protect } = require('../middleware/keycloak');
+const requirePermission = require('../middleware/requirePermission');
 const { authorizePolicyOrClaimBodyAccess } = require('../middleware/claimAccessMiddleware');
 
 const router = express.Router();
-const operationalRoles = ['Pre Assessor', 'Assessor', 'Verifier'];
-const txnAccess = [protect(hasAnyRole(operationalRoles)), authorizePolicyOrClaimBodyAccess];
+// Operational access (roadmap 1.2): protect() authenticates, requirePermission
+// gates on policy.view (held by all operational roles today).
+const txnAccess = [protect(), requirePermission('policy.view'), authorizePolicyOrClaimBodyAccess];
 
 router.post('/txnDetails', ...txnAccess, txnDetailsController.getTxnDetailsController);
 router.post('/transactionApiDBDetails', ...txnAccess, txnDetailsController.getTransactionApiDetailsController);

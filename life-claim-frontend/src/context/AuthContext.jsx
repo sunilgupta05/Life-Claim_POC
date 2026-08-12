@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import authService from '../services/authService'
+import api from '../services/api'
 import { AUTH_LOGOUT_CHANNEL } from '../util/authBroadcast'
 import { readEnv } from '../util/env'
 import { coalesceRoles } from '../util/workflowRole'
@@ -13,6 +14,7 @@ const WARN_MS = 60 * 1000
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [permissions, setPermissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [idleWarning, setIdleWarning] = useState(false)
   const idleTimer = useRef(null)
@@ -23,7 +25,20 @@ export function AuthProvider({ children }) {
     clearLegacyTokenStorage()
     sessionStorage.removeItem('loggedUser')
     setUser(null)
+    setPermissions([])
     setIdleWarning(false)
+  }, [])
+
+  // Load the current user's effective RBAC permissions (roadmap 1.5 follow-on).
+  // Best-effort: on failure permissions stay empty (superuser still bypasses via
+  // can()). Called whenever the user is (re)established.
+  const loadPermissions = useCallback(async () => {
+    try {
+      const { data } = await api.get('/rbac/my-permissions')
+      setPermissions(Array.isArray(data?.permissions) ? data.permissions : [])
+    } catch {
+      setPermissions([])
+    }
   }, [])
 
   useEffect(() => {
@@ -33,6 +48,7 @@ export function AuthProvider({ children }) {
         const profile = await authService.authenticate()
         if (!cancelled && profile) {
           setUser(buildUserFromProfile(profile))
+          loadPermissions()
         }
       } catch (err) {
         if (!cancelled) {
@@ -46,7 +62,7 @@ export function AuthProvider({ children }) {
       }
     })()
     return () => { cancelled = true }
-  }, [clearSession])
+  }, [clearSession, loadPermissions])
 
   useEffect(() => {
     try {
@@ -112,8 +128,9 @@ export function AuthProvider({ children }) {
     const profile = await authService.login(username, password, captchaToken)
     const userData = buildUserFromProfile(profile)
     setUser(userData)
+    loadPermissions()
     return userData
-  }, [])
+  }, [loadPermissions])
 
   const logout = useCallback(async (broadcast = true, reason = 'user') => {
     sessionStorage.setItem('auth_logout_reason', reason)
@@ -144,9 +161,19 @@ export function AuthProvider({ children }) {
     )
   }, [user])
 
+  // Permission check (roadmap 1.5 follow-on). Accepts a key or array of keys;
+  // superuser short-circuits true (mirrors hasRole). Used to gate UI surfaces
+  // (tabs, buttons, pages) by the user's effective RBAC permissions.
+  const can = useCallback((required) => {
+    if (hasSuperUserAccess(user?.roles, user?.username)) return true
+    if (!required) return false
+    const req = Array.isArray(required) ? required : [required]
+    return req.some((p) => permissions.includes(p))
+  }, [user, permissions])
+
   const value = useMemo(
-    () => ({ user, loading, login, logout, idleWarning, extendSession, hasRole, authenticated: !!user }),
-    [user, loading, login, logout, idleWarning, extendSession, hasRole]
+    () => ({ user, loading, login, logout, idleWarning, extendSession, hasRole, can, permissions, authenticated: !!user }),
+    [user, loading, login, logout, idleWarning, extendSession, hasRole, can, permissions]
   )
 
   return (

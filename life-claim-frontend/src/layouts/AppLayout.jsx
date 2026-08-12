@@ -7,28 +7,21 @@ import dashboardService from '../services/dashboardService'
 import { BreadcrumbTrail } from '../components/Breadcrumbs'
 import GlobalLoadingBar from '../components/GlobalLoadingBar'
 import {
-  LayoutDashboard, Search, Bell, ChevronDown, LogOut, Menu, X,
-  FileText, CheckSquare, Shield, Settings, Star,
-  Layers, ClipboardList, ScanSearch,
-  BarChart3, User, Sun, Moon,
+  Bell, ChevronDown, LogOut, Menu, X,
+  Shield, Settings, Star, User, Sun, Moon,
 } from 'lucide-react'
 import AskMeChat from '../components/AskMeChat'
-import { isSuperUserOnlyUser, hasSuperUserRole, hasSuperUserAccess } from '../util/loginHelpers'
+import { isSuperUserOnlyUser } from '../util/loginHelpers'
 import { resolveDisplayRole, SUPERUSER_LABEL } from '../util/superuserRole'
+import { visibleModules, hydrateModules } from '../config/moduleRegistry'
+import { COMPANY } from '../config/companyBrand'
+import accessControlService from '../services/accessControlService'
 import { mapDashboardActivities } from '../util/mapDashboardActivity'
 import { getActivityStyle } from '../util/activityStyles'
 
-const NAV_ITEMS = [
-  { id:'dashboard',        path:'/dashboard',        icon:LayoutDashboard, label:'Dashboard',        operational: true },
-  { id:'superuser-overview', path:'/superuser',            icon:BarChart3,       label: SUPERUSER_LABEL + ' Overview', roles:['superuser'], superuserNav: true },
-  { id:'superuser-claims',   path:'/superuser/claim-search', icon:FileText,      label:'Claim Assignment', roles:['superuser'], superuserNav: true },
-  { id:'policy',           path:'/policy-search',    icon:Search,          label:'Policy Search',    roles:['Pre Assessor'], operational: true },
-  { id:'claims',           path:'/claim-search',     icon:FileText,        label:'Claim Search',     operational: true },
-  { id:'pool',             path:'/pool-selection',   icon:Layers,          label:'Pool Selection',   roles:['Assessor','Verifier'], operational: true },
-  { id:'tasks',            path:'/my-task',          icon:CheckSquare,     label:'My Tasks',         roles:['Assessor','Verifier'], operational: true },
-  { id:'add',              path:'/add-screen',       icon:ScanSearch,      label:'Advance Intelligence', roles:['Assessor','Verifier'], operational: true },
-  { id:'audit-log',        path:'/audit-log',        icon:ClipboardList,   label:'Login Sessions',   roles:['superuser'], superuserNav: true },
-]
+// Nav is now generated from the module registry (roadmap 1.3) — see
+// src/config/moduleRegistry.js. Sidebar entries, their roles, and the
+// enabled/disabled state all live there as data.
 
 const GUEST_USER = { name:'Guest User', role: SUPERUSER_LABEL, email:'guest@dhdigital.co.in', avatar:'GU', username:'guest' }
 
@@ -78,6 +71,17 @@ export default function AppLayout({ children, pageTitle, pageSubtitle }) {
     }).catch(() => setNotifications([]))
   }, [user?.username])
 
+  // Hydrate the DB-backed module config (roadmap 1.5) once authenticated, so nav
+  // reflects Access Control edits. Best-effort: on failure the registry defaults
+  // (1.3) stand. A tick forces a re-render after the overlay is applied.
+  const [, setModuleTick] = useState(0)
+  useEffect(() => {
+    if (!user?.username) return
+    accessControlService.getModules()
+      .then((list) => { if (hydrateModules(list)) setModuleTick((n) => n + 1) })
+      .catch(() => { /* keep registry defaults */ })
+  }, [user?.username])
+
   useEffect(() => {
     const id = setInterval(() => setTimeTick((n) => n + 1), 30000)
     return () => clearInterval(id)
@@ -109,17 +113,9 @@ export default function AppLayout({ children, pageTitle, pageSubtitle }) {
 
   const superUserOnly = isSuperUserOnlyUser(user?.roles, user?.username)
 
-  const visibleNav = NAV_ITEMS.filter((n) => {
-    if (superUserOnly) {
-      return ['superuser-overview', 'superuser-claims', 'audit-log'].includes(n.id)
-    }
-    if (n.id === 'superuser-overview' || n.id === 'superuser-claims') {
-      return hasSuperUserRole(user?.roles) || hasSuperUserAccess(user?.roles, user?.username)
-    }
-    if (n.operational && n.roles && !n.roles.some((r) => hasRole(r))) return false
-    if (n.roles && !n.roles.some((r) => hasRole(r))) return false
-    return true
-  })
+  // Data-driven nav (roadmap 1.3): filtered by the user's roles AND the modules
+  // enabled for this org (COMPANY.enabledModules, from the org profile).
+  const visibleNav = visibleModules(hasRole, superUserOnly, COMPANY.enabledModules)
 
   const currentNav = (() => {
     const path = location.pathname

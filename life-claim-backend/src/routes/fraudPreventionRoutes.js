@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { protect, hasAnyRole } = require('../middleware/keycloak');
+const { protect } = require('../middleware/keycloak');
+const requirePermission = require('../middleware/requirePermission');
 const fraudPreventionController = require('../controllers/fraudPreventionController');
 const {
   authorizeClaimBodyAccess,
 } = require('../middleware/claimAccessMiddleware');
 const { validateFraudClaimBody } = require('../middleware/requestValidation');
 
-const operationalRoles = ['Pre Assessor', 'Assessor', 'Verifier'];
-const operational = protect(hasAnyRole(operationalRoles));
+// Operational access (roadmap 1.2): authenticate via protect(), then require a
+// permission the operational roles hold today (claims.view).
+// Fraud access gated on fraud.view (granted to operational roles by 0008).
+const operational = [protect(), requirePermission('fraud.view')];
 const claimScoped = [operational, validateFraudClaimBody, authorizeClaimBodyAccess];
 
 router.post('/getSafeCityPincodeCheck', operational, fraudPreventionController.getSafeCityPincodeCheck);

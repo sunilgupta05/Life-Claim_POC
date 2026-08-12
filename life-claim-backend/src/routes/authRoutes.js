@@ -12,6 +12,9 @@ const keycloakLoginLockout = require('../services/keycloakLoginLockout');
 const { verifyRecaptchaToken } = require('../services/recaptchaService');
 const { validateKeycloakTokenBody, validateAuthenticateBody } = require('../middleware/requestValidation');
 const loginCrypto = require('../services/loginCrypto');
+const loginService = require('../services/loginService');
+const { getAuthMethod, usesProvider, isRedirect } = require('../auth/authMethod');
+const { getProvider } = require('../auth/providers');
 const jwt = require('jsonwebtoken');
 const { protect } = require('../middleware/keycloak');
 const { extractKeycloakRoles, extractKeycloakUsername } = require('../util/keycloakRoles');
@@ -35,6 +38,19 @@ router.post('/clear-token-cookie', (req, res) => {
   clearAuthSession(req);
   res.status(204).send();
 });
+
+// Map a provider login error (roadmap 1.4) to the response shape the frontend
+// login flow already understands (error_description / message / lockout).
+function sendLoginError(res, err) {
+  const status = Number(err?.status) || 500;
+  return res.status(status).json({
+    error: err?.code || 'login_failed',
+    error_description: err?.message || 'Login failed',
+    message: err?.message || 'Login failed',
+    lockout: Boolean(err?.lockout),
+    remainingMs: Number(err?.remainingMs) || 0,
+  });
+}
 
 const decodeJwtPayload = (token) => {
   try {
@@ -63,10 +79,63 @@ function keycloakAxiosOptions() {
   return opts;
 }
 
+// Pluggable auth (roadmap 1.4): tell the frontend which method is active and
+// whether login is a form post or a redirect-based SSO. Public, no secrets.
+router.get('/methods', (req, res) => {
+  const method = getAuthMethod();
+  res.json({ method, redirect: isRedirect(method), formLogin: !isRedirect(method) });
+});
+
+// Redirect-SSO entry point (SAML / OIDC auth-code). Present + documented, but
+// INERT until an operator configures + enables the IdP (see samlProvider). For
+// non-redirect methods it returns a clear error.
+router.get('/sso/login', authTokenLimiter, async (req, res) => {
+  const method = getAuthMethod();
+  if (!isRedirect(method)) {
+    return res.status(400).json({ error: 'not_sso', error_description: `AUTH_METHOD="${method}" uses form login, not SSO redirect.` });
+  }
+  try {
+    const provider = getProvider(method);
+    const url = await provider.getAuthorizeUrl(req);
+    return res.redirect(url);
+  } catch (err) {
+    return sendLoginError(res, err);
+  }
+});
+
+// Assertion-consumer / SSO callback. Same inert-until-configured contract.
+router.post('/sso/callback', async (req, res) => {
+  const method = getAuthMethod();
+  if (!isRedirect(method)) {
+    return res.status(400).json({ error: 'not_sso', error_description: `AUTH_METHOD="${method}" uses form login, not SSO redirect.` });
+  }
+  try {
+    const provider = getProvider(method);
+    await provider.handleCallback(req, res);
+    // On success cookies are set; send the SPA to its post-login landing.
+    return res.redirect('/');
+  } catch (err) {
+    return sendLoginError(res, err);
+  }
+});
+
 // Proxy route for Keycloak token endpoint to avoid CORS issues
 router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, async (req, res, next) => {
   const keycloakUrl = appConfig.get('KEYCLOAK_URL') || 'http://localhost:8080';
   const tokenEndpoint = `${keycloakUrl.replace(/\/$/, '')}/realms/life-claims/protocol/openid-connect/token`;
+  // Pluggable auth (roadmap 1.4): for provider-backed methods (local/ldap/oidc/
+  // saml) delegate to the login dispatcher using the SAME request contract, so
+  // the frontend form is unchanged. hybrid/keycloak fall through to the existing
+  // untouched Keycloak proxy below.
+  const authMethod = getAuthMethod();
+  if (usesProvider(authMethod)) {
+    try {
+      return await loginService.login(req, res);
+    } catch (err) {
+      return sendLoginError(res, err);
+    }
+  }
+
   const loginUsername = req.body?.username;
   const captchaToken = req.body?.captchaToken;
 

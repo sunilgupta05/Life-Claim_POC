@@ -22,6 +22,8 @@ const orgProfileRoutes = require('./routes/orgProfileRoutes');
 const orgProfileService = require('./services/orgProfileService');
 const configRoutes = require('./routes/configRoutes');
 const configService = require('./config/configService');
+const rbacRoutes = require('./routes/rbacRoutes');
+const rbacService = require('./services/rbacService');
 const mailRoute = require('./routes/mail')
 const attachmentsRoute = require('./routes/attachment')
 const policyRoutes = require('./routes/policyRoutes')
@@ -390,6 +392,12 @@ app.use('/api/superuser', adminRoutes);
 // the router). Edits hot-reload immediately via the config service.
 app.use('/api/config', configRoutes);
 
+// Dynamic RBAC admin API (roadmap 1.1). Superuser-only except GET /my-permissions
+// (enforced inside the router). Role/permission/mapping edits hot-reload
+// immediately via the RBAC service. This is the data foundation only — no
+// existing route guard consumes it yet.
+app.use('/api/rbac', rbacRoutes);
+
 // Centralized error handler: prevent leaking stack traces/internal details to clients.
 // In non-production we still return a short detail string for debugging convenience.
 app.use((err, req, res, next) => {
@@ -415,6 +423,12 @@ configService.init().catch((err) => {
 // this never blocks or breaks boot even if migration 0003 hasn't been run.
 orgProfileService.load().catch((err) => {
   console.warn('[orgProfile] startup preload skipped:', err?.message);
+});
+
+// Warm the dynamic RBAC cache at startup (roadmap 1.1). Best-effort: if the
+// rbac_* tables aren't migrated yet, the service simply denies by default.
+rbacService.init().catch((err) => {
+  console.warn('[rbac] startup init skipped:', err?.message);
 });
 
 // Periodic audit reconciliation:

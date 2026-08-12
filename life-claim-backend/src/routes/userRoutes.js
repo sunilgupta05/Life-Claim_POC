@@ -2,7 +2,7 @@ const express = require('express');
 const appConfig = require('../config/configService');
 const userService = require('../services/authService');
 const authMiddleware = require('../middleware/authMiddleware');
-const authorize = require('../middleware/authorize');
+const requirePermission = require('../middleware/requirePermission');
 const userController = require('../controllers/userController');
 const { protect } = require('../middleware/keycloak');
 const selfOrAdminUserRead = require('../middleware/selfOrAdminUserRead');
@@ -75,10 +75,10 @@ router.post('/logout-on-close', authMiddleware.authenticate, async (req, res) =>
 
 
 router.get('/user/:id', protect(), selfOrAdminUserRead, userController.getUserByUsername);
-router.get('/user', authMiddleware.authenticate, authorize('superuser', 'super user'), userController.getUsers);
-router.post('/user', authMiddleware.authenticate, authorize('superuser', 'super user'), validateCreateUserBody, userController.createUser);
-router.put('/user/:id', authMiddleware.authenticate, authorize('superuser', 'super user'), validateUpdateUserBody, userController.updateUser);
-router.delete('/user/:id', authMiddleware.authenticate, authorize('superuser', 'super user'), userController.deleteUser);
+router.get('/user', authMiddleware.authenticate, requirePermission('admin.users.manage'), userController.getUsers);
+router.post('/user', authMiddleware.authenticate, requirePermission('admin.users.manage'), validateCreateUserBody, userController.createUser);
+router.put('/user/:id', authMiddleware.authenticate, requirePermission('admin.users.manage'), validateUpdateUserBody, userController.updateUser);
+router.delete('/user/:id', authMiddleware.authenticate, requirePermission('admin.users.manage'), userController.deleteUser);
 
 // router.get('/roles', authMiddleware.authenticate, roleController.getAllRoles);
 // router.post('/addrole', authMiddleware.authenticate, roleController.createRole);

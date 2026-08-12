@@ -12,6 +12,7 @@ import {
 } from '../util/loginHelpers'
 import { isCaptchaOptional } from '../config/appEnv'
 import { COMPANY } from '../config/companyBrand'
+import { API_URL } from '../util/config'
 import BrandLogo from '../components/BrandLogo'
 import { isRetiredAdminUsername } from '../util/superuserRole'
 import { useTheme } from '../context/ThemeContext'
@@ -97,6 +98,18 @@ export default function Login() {
   const [mounted,   setMounted]   = useState(false)
   const [sessionNotice, setSessionNotice] = useState('')
   const [offline, setOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+  // Pluggable auth (roadmap 1.4): discover whether this deployment uses a
+  // redirect-based SSO method (SAML / OIDC auth-code). Default hybrid ⇒ form
+  // login, so this leaves the current page unchanged unless SSO is configured.
+  const [ssoRedirect, setSsoRedirect] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_URL || ''}/api/auth/methods`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setSsoRedirect(Boolean(d.redirect)) })
+      .catch(() => { /* best-effort: assume form login */ })
+    return () => { cancelled = true }
+  }, [])
   useEffect(() => {
     const reason = sessionStorage.getItem('auth_logout_reason')
     if (reason) {
@@ -321,6 +334,22 @@ export default function Login() {
               <div>
                 <div style={{ fontSize:'13px', fontWeight:700, color: T.approved.text }}>Login successful!</div>
                 <div style={{ fontSize:'12px', color: T.approved.color, marginTop:'1px' }}>Redirecting to your dashboard...</div>
+              </div>
+            </div>
+          )}
+
+          {ssoRedirect && (
+            <div style={{ animation:'fadeUp 0.5s 0.4s ease both', marginBottom:'18px' }}>
+              <button
+                type="button"
+                onClick={() => { window.location.href = `${API_URL || ''}/api/auth/sso/login` }}
+                style={{ width:'100%', padding:'13px', borderRadius:'10px', border:'none', cursor:'pointer',
+                         background: T.primary || '#1D4ED8', color:'#fff', fontWeight:700, fontSize:'14px', fontFamily:'Inter,sans-serif' }}
+              >
+                Sign in with Single Sign-On
+              </button>
+              <div style={{ textAlign:'center', fontSize:'12px', color:T.textMuted, marginTop:'10px' }}>
+                Single sign-on is enabled for your organization.
               </div>
             </div>
           )}

@@ -18,7 +18,9 @@ import {
 
 } from './util/loginHelpers'
 
-import { SUPERUSER_ROUTE_ROLES } from './util/superuserRole'
+import { moduleGuard, isModuleEnabled } from './config/moduleRegistry'
+
+import { COMPANY } from './config/companyBrand'
 
 
 
@@ -48,6 +50,8 @@ const AdminClaimSearch = lazy(() => import('./pages/AdminClaimSearch'))
 const AdminWorkloadList = lazy(() => import('./pages/AdminWorkloadList'))
 
 const AdminAuditLog    = lazy(() => import('./pages/AdminAuditLog'))
+
+const AccessControl    = lazy(() => import('./pages/AccessControl'))
 
 const CaseDetails      = lazy(() => import('./pages/CaseDetails'))
 
@@ -90,7 +94,7 @@ function SuperuserClaimSearchRoute() {
     return <Navigate to={`/superuser/workload?view=${encodeURIComponent(view)}`} replace />
   }
   return (
-    <ProtectedRoute requiredRole={SUPERUSER_ROUTE_ROLES}>
+    <ProtectedRoute {...moduleGuard('superuser-claims')}>
       <AdminClaimSearch />
     </ProtectedRoute>
   )
@@ -116,7 +120,7 @@ function AuthLoadingScreen() {
 
 
 
-function ProtectedRoute({ children, requiredRole, blockSuperUserOnly }) {
+function ProtectedRoute({ children, requiredRole, blockSuperUserOnly, module }) {
 
   const { authenticated, loading, hasRole, user } = useAuth()
 
@@ -131,6 +135,14 @@ function ProtectedRoute({ children, requiredRole, blockSuperUserOnly }) {
   if (!authenticated) return <Navigate to="/login" replace state={{ from: location.pathname }} />
 
 
+
+  // Module gating (roadmap 1.3): if this route's feature module is disabled for
+  // the org (COMPANY.enabledModules), it's unreachable. Redirect to /profile
+  // (always available, no module) to avoid any redirect loop.
+  if (module && !isModuleEnabled(module, COMPANY.enabledModules) && location.pathname !== '/profile') {
+    toast('warning', 'Module unavailable', 'This module is not enabled for your organization.')
+    return <Navigate to="/profile" replace />
+  }
 
   if (blockSuperUserOnly && isSuperUserOnlyUser(user?.roles, user?.username) && !isSuperUserShellPath(location.pathname)) {
 
@@ -210,7 +222,8 @@ function IdleWarningBanner() {
 
 
 
-const op = { blockSuperUserOnly: true }
+// Route guards now come from the module registry via moduleGuard(id)
+// (roadmap 1.3) — operational/blockSuperUserOnly + requiredRole live there.
 
 
 
@@ -236,39 +249,41 @@ export default function App() {
 
 
 
-              <Route path="/dashboard" element={<ProtectedRoute {...op}><Dashboard/></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute {...moduleGuard('dashboard')}><Dashboard/></ProtectedRoute>} />
 
-              <Route path="/policy-search" element={<ProtectedRoute {...op} requiredRole={['Pre Assessor']}><PolicySearch/></ProtectedRoute>} />
+              <Route path="/policy-search" element={<ProtectedRoute {...moduleGuard('policy')}><PolicySearch/></ProtectedRoute>} />
 
-              <Route path="/claim-search" element={<ProtectedRoute {...op}><ClaimSearch/></ProtectedRoute>} />
+              <Route path="/claim-search" element={<ProtectedRoute {...moduleGuard('claims')}><ClaimSearch/></ProtectedRoute>} />
 
-              <Route path="/registration" element={<ProtectedRoute {...op} requiredRole={['Pre Assessor']}><Registration/></ProtectedRoute>} />
+              <Route path="/registration" element={<ProtectedRoute {...moduleGuard('policy')}><Registration/></ProtectedRoute>} />
 
-              <Route path="/registration/:claimId" element={<ProtectedRoute {...op} requiredRole={['Pre Assessor']}><RegistrationLegacyRedirect/></ProtectedRoute>} />
+              <Route path="/registration/:claimId" element={<ProtectedRoute {...moduleGuard('policy')}><RegistrationLegacyRedirect/></ProtectedRoute>} />
 
-              <Route path="/claim-view/:claimId" element={<ProtectedRoute {...op}><ClaimViewRedirect/></ProtectedRoute>} />
+              <Route path="/claim-view/:claimId" element={<ProtectedRoute {...moduleGuard('claims')}><ClaimViewRedirect/></ProtectedRoute>} />
 
-              <Route path="/registration-fetch" element={<ProtectedRoute {...op}><ClaimView/></ProtectedRoute>} />
-              <Route path="/registration-fetch/:claimId" element={<ProtectedRoute {...op}><ClaimWorkspaceLegacyRedirect/></ProtectedRoute>} />
+              <Route path="/registration-fetch" element={<ProtectedRoute {...moduleGuard('claims')}><ClaimView/></ProtectedRoute>} />
+              <Route path="/registration-fetch/:claimId" element={<ProtectedRoute {...moduleGuard('claims')}><ClaimWorkspaceLegacyRedirect/></ProtectedRoute>} />
 
-              <Route path="/pool-selection" element={<ProtectedRoute {...op} requiredRole={['Assessor','Verifier']}><PoolSelection/></ProtectedRoute>} />
+              <Route path="/pool-selection" element={<ProtectedRoute {...moduleGuard('pool')}><PoolSelection/></ProtectedRoute>} />
 
-              <Route path="/my-task" element={<ProtectedRoute {...op} requiredRole={['Assessor','Verifier']}><MyTask/></ProtectedRoute>} />
+              <Route path="/my-task" element={<ProtectedRoute {...moduleGuard('tasks')}><MyTask/></ProtectedRoute>} />
 
-              <Route path="/add-screen" element={<ProtectedRoute {...op} requiredRole={['Assessor','Verifier']}><AddScreen/></ProtectedRoute>} />
+              <Route path="/add-screen" element={<ProtectedRoute {...moduleGuard('add')}><AddScreen/></ProtectedRoute>} />
 
-              <Route path="/add-case" element={<ProtectedRoute {...op} requiredRole={['Assessor','Verifier']}><CaseDetails/></ProtectedRoute>} />
-              <Route path="/case/:id" element={<ProtectedRoute {...op} requiredRole={['Assessor','Verifier']}><AddCaseLegacyRedirect/></ProtectedRoute>} />
+              <Route path="/add-case" element={<ProtectedRoute {...moduleGuard('add')}><CaseDetails/></ProtectedRoute>} />
+              <Route path="/case/:id" element={<ProtectedRoute {...moduleGuard('add')}><AddCaseLegacyRedirect/></ProtectedRoute>} />
 
 
 
-              <Route path="/audit-log" element={<ProtectedRoute requiredRole={SUPERUSER_ROUTE_ROLES}><AdminAuditLog/></ProtectedRoute>} />
+              <Route path="/audit-log" element={<ProtectedRoute {...moduleGuard('audit-log')}><AdminAuditLog/></ProtectedRoute>} />
 
-              <Route path="/superuser" element={<ProtectedRoute requiredRole={SUPERUSER_ROUTE_ROLES}><AdminOverview/></ProtectedRoute>} />
+              <Route path="/superuser" element={<ProtectedRoute {...moduleGuard('superuser-overview')}><AdminOverview/></ProtectedRoute>} />
 
               <Route path="/superuser/claim-search" element={<SuperuserClaimSearchRoute />} />
 
-              <Route path="/superuser/workload" element={<ProtectedRoute requiredRole={SUPERUSER_ROUTE_ROLES}><AdminWorkloadList/></ProtectedRoute>} />
+              <Route path="/superuser/workload" element={<ProtectedRoute {...moduleGuard('superuser-overview')}><AdminWorkloadList/></ProtectedRoute>} />
+
+              <Route path="/superuser/access" element={<ProtectedRoute {...moduleGuard('access-control')}><AccessControl/></ProtectedRoute>} />
 
               <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>} />
 

@@ -24,6 +24,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@node-saml/node-saml": "^5.1.0",
     "amqplib": "^0.10.9",
     "axios": "^1.7.2",
     "bcrypt": "^6.0.0",
@@ -43,6 +44,7 @@
     "jsonwebtoken": "^9.0.2",
     "keycloak-connect": "^26.1.1",
     "keycloak-js": "^26.2.3",
+    "ldapts": "^9.0.0",
     "mailparser": "^3.7.1",
     "multer": "^2.2.0",
     "mysql2": "^3.9.1",

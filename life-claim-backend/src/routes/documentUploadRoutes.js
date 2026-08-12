@@ -46,6 +46,7 @@ const upload = multer({
 
 const documentUploadController = require('../controllers/documentUploadController');
 const authMiddleware = require('../middleware/authMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const {
     authorizeClaimBodyAccess,
     authorizePreviewNodeAccess,
@@ -57,7 +58,7 @@ const router = express.Router();
 //router.get('/folder/:applicationNo', authMiddleware.authenticate, documentViewerController.getDocumentsByApplicationNo);
 // 
 // Multer must run before authorizeClaimBodyAccess — multipart fields are not in req.body until parsed.
-router.post('/uploadFile', authMiddleware.authenticate, (req, res, next) => {
+router.post('/uploadFile', authMiddleware.authenticate, requirePermission('documents.upload'), (req, res, next) => {
     upload.array('files', MAX_UPLOAD_FILES)(req, res, function (err) {
         if (err instanceof multer.MulterError) {
             return res.status(400).json({

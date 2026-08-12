@@ -177,6 +177,7 @@ export default function EagleScreenSection({ demogs, canEdit, onPatch, onOpenFra
       <p style={{ fontSize: '12px', color: WS.textMuted, marginBottom: '12px', lineHeight: 1.5 }}>
         Eagle investigative tables persist on Summary Submit via register-claim/update. Use Fraud Prevention for the four automated cross-claim rules.
       </p>
+      {onOpenFraud && (
       <div style={{ marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button
           type="button"
@@ -186,6 +187,7 @@ export default function EagleScreenSection({ demogs, canEdit, onPatch, onOpenFra
           Fraud Prevention (Rule Manager)
         </button>
       </div>
+      )}
       {TABLE_DEFS.map((def) => (
         <div key={def.policyKey} style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

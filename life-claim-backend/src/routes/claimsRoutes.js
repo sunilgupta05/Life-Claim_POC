@@ -1,6 +1,7 @@
 const express = require('express');
 const claimsController = require('../controllers/claimsController');
-const { protect, hasAnyRole } = require('../middleware/keycloak');
+const { protect } = require('../middleware/keycloak');
+const requirePermission = require('../middleware/requirePermission');
 const {
   validateClaimByUsernameBody,
   validateAssignClaimsBody,
@@ -16,7 +17,8 @@ router.post('/claimByUsername', protect(), validateClaimByUsernameBody, claimsCo
 // Pre Assessors and Verifiers can assign claims
 router.post(
   '/assignClaim',
-  protect(hasAnyRole(['Pre Assessor', 'Assessor', 'Verifier'])),
+  protect(),
+  requirePermission('claims.view'),
   validateAssignClaimsBody,
   authorizeAssignClaimsBodyAccess,
   claimsController.assignClaims
@@ -25,7 +27,8 @@ router.post(
 // Any authenticated user with Pre Assessor role can change status
 router.post(
   '/changeStatus',
-  protect('realm:Pre Assessor'),
+  protect(),
+  requirePermission('registration.edit'),
   validateChangeStatusBody,
   authorizeClaimBodyAccess,
   claimsController.changeStatus,

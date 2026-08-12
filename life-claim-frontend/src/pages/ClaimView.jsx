@@ -59,7 +59,7 @@ export default function ClaimView() {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
-  const { user } = useAuth()
+  const { user, can } = useAuth()
 
   const [claim, setClaim] = useState(null)
   const [workspaceRaw, setWorkspaceRaw] = useState(null)
@@ -343,9 +343,11 @@ export default function ClaimView() {
                 <button type="button" onClick={() => setShowTxn(true)} style={actionBtn}>
                   <Receipt size={14} /> Transaction
                 </button>
+                {can('fraud.view') && (
                 <button type="button" onClick={() => setShowFraud(true)} style={{ ...actionBtn, background: T.rejected.bg, color: T.rejected.color, border: `1px solid ${T.rejected.border}` }}>
                   <ShieldAlert size={14} /> Fraud
                 </button>
+                )}
               </>
             )}
             {!browseMode && hasSuperUserAccess(userRoles, user?.username) && (
@@ -370,7 +372,11 @@ export default function ClaimView() {
             <div style={{ padding: '6px 12px', fontSize: '11px', background: T.pending.bg, color: T.pending.text }}>Loading tab data…</div>
           )}
           <div style={{ display: 'flex', borderBottom: `1px solid ${WS.border}`, overflowX: 'auto', background: WS.surfaceSubtle }}>
-            {TABS.map((tab) => (
+            {TABS.filter((tab) => (
+              tab === 'Assessment' ? can('assessment.view')
+              : tab === 'Decision & Summary' ? can('decision.view')
+              : true
+            )).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -399,7 +405,7 @@ export default function ClaimView() {
                 demogs={demogs}
                 canEdit={effectiveCanEdit}
                 onPatch={patchPolicyData}
-                onOpenFraud={() => setShowFraud(true)}
+                onOpenFraud={can('fraud.view') ? () => setShowFraud(true) : undefined}
               />
             )}
             {activeTab === 'Requirements' && (
@@ -417,7 +423,7 @@ export default function ClaimView() {
               loadedTabs.has('Assessment') ? (
                 <AssessmentWorkspaceTab
                   assessment={workspaceRaw?.assessment}
-                  canEdit={effectiveCanEdit}
+                  canEdit={effectiveCanEdit && can('assessment.act')}
                   onPatch={patchPolicyData}
                 />
               ) : (
@@ -432,8 +438,8 @@ export default function ClaimView() {
                   userRoles={userRoles}
                   userRole={user?.role}
                   claimRole={claim?.claimRole}
-                  assessorCanEdit={assessorCanEdit}
-                  verifierCanEdit={verifierCanEdit}
+                  assessorCanEdit={assessorCanEdit && can('decision.act')}
+                  verifierCanEdit={verifierCanEdit && can('decision.act')}
                   accessorDecision={accessorDecision}
                   setAccessorDecision={setAccessorDecision}
                   accessorReason={accessorReason}
@@ -458,6 +464,7 @@ export default function ClaimView() {
       </div>
 
       <QuickAccessModal open={showQuick} onClose={() => setShowQuick(false)} policyData={policyData} onSave={patchPolicyData} disabled={!canEdit} />
+      {can('fraud.view') && (
       <FraudRuleManagerModal
         open={showFraud}
         onClose={() => setShowFraud(false)}
@@ -474,6 +481,7 @@ export default function ClaimView() {
         username={user?.username || sessionStorage.getItem('loggedUser')}
         enableAssessor={canEdit}
       />
+      )}
       <TransactionDetailsModal
         open={showTxn}
         onClose={() => setShowTxn(false)}
@@ -501,7 +509,7 @@ export default function ClaimView() {
         onSecondary={() => setSubmitSuccess(null)}
       />
       <ClaimAssignModal open={showAssign} onClose={() => setShowAssign(false)} claimNumber={resolvedClaimId} mode={verifierCanEdit ? 'verifier' : 'assessor'} />
-      <DocumentSideSlider open={showDocs} onClose={() => setShowDocs(false)} claimId={resolvedClaimId} readOnly={!canEdit} />
+      <DocumentSideSlider open={showDocs} onClose={() => setShowDocs(false)} claimId={resolvedClaimId} readOnly={!canEdit || !can('documents.upload')} />
     </AppLayout>
   )
 }

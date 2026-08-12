@@ -6,6 +6,10 @@ const PUBLIC_API_ROUTES = [
   { method: 'POST', path: '/api/auth/clear-token-cookie' },
   { method: 'POST', path: '/api/auth/logout-audit' },
   { method: 'POST', path: '/api/user/login' },
+  // Pluggable auth (roadmap 1.4): method discovery + redirect-SSO entry/callback.
+  { method: 'GET', path: '/api/auth/methods' },
+  { method: 'GET', path: '/api/auth/sso/login' },
+  { method: 'POST', path: '/api/auth/sso/callback' },
 ];
 
 const normalizePath = (req) => {

@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const registerClaimController = require('../controllers/registerClaimController');
 const { updateClaim } = require('../controllers/updateClaimController');
-const { protect, hasAnyRole } = require('../middleware/keycloak');
+const { protect } = require('../middleware/keycloak');
+const requirePermission = require('../middleware/requirePermission');
 const { authorizeClaimBodyAccess } = require('../middleware/claimAccessMiddleware');
 const { validateBody } = require('../middleware/validateJoi');
 const {
@@ -10,18 +11,21 @@ const {
   updateClaimBodySchema,
 } = require('../validation/registerClaimSchemas');
 
-const operationalRoles = ['Pre Assessor', 'Assessor', 'Verifier'];
+// Roadmap 1.2: protect() authenticates; requirePermission gates. registration.create
+// is Pre-Assessor-only today; claims.view (below) is held by all operational roles.
 
 // Pre Assessors can register claims
 router.post(
   '/',
-  protect('realm:Pre Assessor'),
+  protect(),
+  requirePermission('registration.create'),
   validateBody(registerClaimBodySchema),
   registerClaimController.registerClaim,
 );
 router.post(
   '/update',
-  protect(hasAnyRole(operationalRoles)),
+  protect(),
+  requirePermission('claims.view'),
   validateBody(updateClaimBodySchema),
   authorizeClaimBodyAccess,
   updateClaim,
