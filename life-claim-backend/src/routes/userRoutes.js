@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const express = require('express');
 const appConfig = require('../config/configService');
 const userService = require('../services/authService');
@@ -42,7 +43,7 @@ router.post('/login', legacyLoginLimiter, validateLegacyLoginBody, async (req, r
 
     res.json(result);
   } catch (error) {
-    console.error('[Login Error]', error.message);
+    logger.error('[Login Error]', error.message);
     const status = error.status || 401;
     res.status(status).json({ 
       message: error.message || 'Login failed',

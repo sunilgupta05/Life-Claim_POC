@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const fs = require('fs');
 const appConfig = require('../config/configService');
 const path = require('path');
@@ -5,6 +6,10 @@ const formData = require('form-data');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const uploadedDocumentsService = require('../services/uploadedDocumentsService');
+const { run } = require('../util/resilience');
+// Resilient DMS calls (roadmap 3.1): every Alfresco call gets a timeout so a hung
+// DMS can't wedge a request; axios uses `timeout`, native fetch uses AbortSignal.
+const alfrescoTimeout = () => appConfig.getNumber('ALFRESCO_TIMEOUT_MS', 15000);
 const DOCUMENT_STORAGE = appConfig.get('ENVIRONMENT1') === 'PRODUCTION' ? appConfig.get('PROD_DOCUMENT_STORAGE_LOCATION') : appConfig.get('DEV_DOCUMENT_STORAGE_LOCATION');
 const isProduction = appConfig.get('NODE_ENV') === 'production';
 const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
@@ -85,23 +90,24 @@ const isFileContentAllowed = async (filePath, originalName) => {
   }
 };
 
-//console.log(`documentUploadController.js > previewDocument > nodeId 1:`);
+//logger.info(`documentUploadController.js > previewDocument > nodeId 1:`);
 /**preview link to see the uploaded documents (Route to preview a document from Alfresco) */
 exports.previewDocument = async (req, res) => {
   const nodeId = req.params.nodeId;
-  console.log('documentUploadController.js > previewDocument request received');
+  logger.info('documentUploadController.js > previewDocument request received');
   try {
     const APITicket = await getAuthTicketForDMS();
     if (String(APITicket).includes('ERROR')) {
       return res.status(500).json(safeErrorResponse('Failed to preview document', APITicket));
     }
     const alfrescoURL = `http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${nodeId}/content`;
-    const response = await axios.get(alfrescoURL, {
+    const response = await run('alfresco', () => axios.get(alfrescoURL, {
       headers: {
         Authorization: `Basic ${APITicket}`,
       },
       responseType: 'stream',
-    });
+      timeout: alfrescoTimeout(),
+    }));
 
     const upstreamContentType = String(response.headers['content-type'] || '').toLowerCase();
     const contentType = upstreamContentType.split(';')[0] || 'application/octet-stream';
@@ -113,7 +119,7 @@ exports.previewDocument = async (req, res) => {
     res.setHeader('Content-Disposition', canInlinePreview ? 'inline' : 'attachment');
     response.data.pipe(res);
   } catch (err) {
-    console.error('Error previewing file:', err.message);
+    logger.error('Error previewing file:', err.message);
     res.status(500).json(safeErrorResponse('Failed to preview document', err));
   }
 };
@@ -121,10 +127,10 @@ exports.previewDocument = async (req, res) => {
 
 /** to update table after the document uploaded on alfresco */
 exports.UpdateUploadedDocumentTable = async (claimNumber, fileName, documentType, folderId, nodeId) => {
-  console.log('documentUploadController.js >> UpdateUploadedDocumentTable invoked');
+  logger.info('documentUploadController.js >> UpdateUploadedDocumentTable invoked');
   const UploadedDocumentResponse = await uploadedDocumentsService.AddUploadedDocumentService(claimNumber, fileName, documentType, folderId, nodeId);
   //const uploadedDocument =  UploadedDocumentResponse;
-  console.log('documentUploadController.js >> UpdateUploadedDocumentTable completed');
+  logger.info('documentUploadController.js >> UpdateUploadedDocumentTable completed');
   return UploadedDocumentResponse;
 }
 
@@ -136,11 +142,12 @@ const checkDuplicate = async (folderID, fileName, APITicket) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Basic ${APITicket}`
-      }
+      },
+      signal: AbortSignal.timeout(alfrescoTimeout())
     });
 
     if (!getFilesInFolderRes.ok) {
-      console.error('Failed to fetch files from folder', await getFilesInFolderRes.text());
+      logger.error('Failed to fetch files from folder', await getFilesInFolderRes.text());
       return false;
     }
 
@@ -150,7 +157,7 @@ const checkDuplicate = async (folderID, fileName, APITicket) => {
     const isDuplicate = existingFiles.some(entry => entry.entry.name === fileName);
     return isDuplicate;
   } catch (err) {
-    console.error('Error in checkDuplicate:', err);
+    logger.error('Error in checkDuplicate:', err);
     return false;
   }
 };
@@ -177,7 +184,7 @@ exports.uploadDocument = async (req, res, next) => {
       return res.status(400).json(safeErrorResponse("Security validation failed for uploaded file"));
     }
 
-    console.log('documentUploadController.js > uploadDocument request received');
+    logger.info('documentUploadController.js > uploadDocument request received');
     const APITicket = await getAuthTicketForDMS();
 
     if (APITicket.includes('ERROR')) {
@@ -188,17 +195,18 @@ exports.uploadDocument = async (req, res, next) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Basic ${APITicket}`
-      }
+      },
+      signal: AbortSignal.timeout(alfrescoTimeout())
     });
 
-    //console.log('5 documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse', getFolderByClaimNumberResponse);
+    //logger.info('5 documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse', getFolderByClaimNumberResponse);
     /** Error Handling for getFolderByClaimNumber */
     if (!getFolderByClaimNumberResponse.ok) {
-      console.log('err documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse');
+      logger.info('err documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse');
       const errMsg = await getFolderByClaimNumberResponse.text();
       return res.status(500).json(safeErrorResponse("Something went wrong", errMsg));
     }
-    console.log('documentUploadController.js > uploadDocument folder lookup succeeded');
+    logger.info('documentUploadController.js > uploadDocument folder lookup succeeded');
 
     const folderEntry = await getFolderByClaimNumberResponse.json();
     const entries = folderEntry?.list?.entries || [];
@@ -213,7 +221,7 @@ exports.uploadDocument = async (req, res, next) => {
         break;
       }
     }
-    // console.log('7 documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse');
+    // logger.info('7 documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse');
     // if folder does not exist for creating new folder based on ClaimNumber
     if (!folderID) {
       /** Createing New Folder*/
@@ -226,9 +234,10 @@ exports.uploadDocument = async (req, res, next) => {
         body: JSON.stringify({
           "name": claimNumber,
           "nodeType": "cm:folder"
-        })
+        }),
+        signal: AbortSignal.timeout(alfrescoTimeout())
       });
-      // console.log('8 documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse');
+      // logger.info('8 documentUploadController.js > uploadDocument :: getFolderByClaimNumberResponse');
       /** Error Handing for createFolder */
       if (!createFolderResponse.ok) {
         const errMsg = await createFolderResponse.json();
@@ -237,9 +246,9 @@ exports.uploadDocument = async (req, res, next) => {
       createdDocument = await createFolderResponse.json();
       folderID = createdDocument?.entry?.id;
     }
-    // console.log('9 documentUploadController.js > uploadDocument :: folderID ', folderID);
+    // logger.info('9 documentUploadController.js > uploadDocument :: folderID ', folderID);
     if (folderID) {
-      console.log('documentUploadController.js > uploadDocument folder resolved');
+      logger.info('documentUploadController.js > uploadDocument folder resolved');
 
       /** Duplicate check uses original filename (user-visible name in Alfresco) */
       const isDuplicate = await checkDuplicate(folderID, originalName, APITicket);
@@ -260,7 +269,7 @@ exports.uploadDocument = async (req, res, next) => {
         const currentDate = new Date();
         const form = new formData();
         form.append('filedata', fs.createReadStream(filePath), originalName);
-        await axios.post(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${folderID}/children`,
+        await run('alfresco', () => axios.post(`http://${appConfig.get('DOCUMENT_VIEWER_IP')}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${folderID}/children`,
           form,
           {
             headers: {
@@ -268,20 +277,21 @@ exports.uploadDocument = async (req, res, next) => {
               Authorization: `Basic ${APITicket}`,
             },
             params: { overwrite: false },
-          })
+            timeout: alfrescoTimeout(),
+          }), { retries: 0 })
           .then(async (response) => {
             try {
-              //console.log("Uploaded file response:", JSON.stringify(response.data, null, 2));
+              //logger.info("Uploaded file response:", JSON.stringify(response.data, null, 2));
               const entry = response.data.entry;
               const nodeId = entry.id;
               //const nodeRef = `workspace://SpacesStore/${nodeId}`;
-              // console.log("Stored NodeRef:", nodeRef);
-              console.log('documentUploadController.js > uploadDocument DMS upload succeeded');
+              // logger.info("Stored NodeRef:", nodeRef);
+              logger.info('documentUploadController.js > uploadDocument DMS upload succeeded');
               // Using originalName for the database entry so the user sees the original name in the UI
               await exports.UpdateUploadedDocumentTable(claimNumber, originalName, documentType, folderID, nodeId);
               return res.status(201).json({ message: "File Uploaded Successfully" });
             } catch (err) {
-              console.error('Failed to update DB after file upload:', err);
+              logger.error('Failed to update DB after file upload:', err);
               return res.status(500).json(safeErrorResponse("File uploaded but DB update failed", err));
             }
           })
@@ -296,7 +306,7 @@ exports.uploadDocument = async (req, res, next) => {
               message: "Something went Wrong while uploading file..",
             });
           });
-        console.log('documentUploadController.js > uploadDocument processing completed');
+        logger.info('documentUploadController.js > uploadDocument processing completed');
       });
 
     } else {
@@ -315,7 +325,7 @@ exports.uploadDocument = async (req, res, next) => {
 
 
 const getAuthTicketForDMS = async () => {
-  console.log('documentUploadController.js > DMS ticket request started');
+  logger.info('documentUploadController.js > DMS ticket request started');
   const dmsUserId =
     process.env.DMS_USER_ID ||
     (!isProduction ? 'admin' : '');
@@ -335,7 +345,8 @@ const getAuthTicketForDMS = async () => {
     body: JSON.stringify({
       "userId": dmsUserId,
       "password": dmsPassword
-    })
+    }),
+    signal: AbortSignal.timeout(alfrescoTimeout())
   });
 
   /** Error Handling for getTicketResponse */

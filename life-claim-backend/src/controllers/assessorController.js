@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const Claim = require("../models/Claim");
 const appConfig = require('../config/configService');
 const { getTransactionApiBase } = require("../services/transactionApiClient");
@@ -178,7 +179,7 @@ const getDemogs = async (req, res) => {
       data: responseData,
     });
   } catch (error) {
-    console.log(error);
+    logger.info(error);
   }
 };
 
@@ -268,7 +269,7 @@ const getRequirement = async (req, res) => {
       data: responseData,
     });
   } catch (error) {
-    console.error("Error fetching data:", error);
+    logger.error("Error fetching data:", error);
     return res.status(500).json({
       message: "Server error",
     });
@@ -330,7 +331,7 @@ const getDecision = async (req, res) => {
       data: responseData,
     });
   } catch (error) {
-    console.error("Error fetching decision data:", error);
+    logger.error("Error fetching decision data:", error);
     return res.status(500).json({
       message: "Server error",
     });
@@ -432,7 +433,7 @@ const getAssessment = async (req, res) => {
       data: responseData,
     });
   } catch (error) {
-    console.error("Error fetching assessment data:", error);
+    logger.error("Error fetching assessment data:", error);
     return res.status(500).json({
       message: "Server error",
     });
@@ -485,7 +486,7 @@ const getCalculateAmount = async (req, res) => {
         laRes = await fetch(url);
         data = await laRes.json().catch(() => data);
       } catch (ensureErr) {
-        console.error(
+        logger.error(
           "assessorController.js >> getCalculateAmount >> decision_details ensure failed :>",
           ensureErr.message || ensureErr
         );
@@ -499,7 +500,7 @@ const getCalculateAmount = async (req, res) => {
       data: camelCasedData,
     });
   } catch (error) {
-    console.error('assessorController.js >> getCalculateAmount >> error :>', error);
+    logger.error('assessorController.js >> getCalculateAmount >> error :>', error);
     res.status(503).json({
       message: 'Service unavailable',
       ...(appConfig.get('EXPOSE_ERROR_DETAIL') === 'true'

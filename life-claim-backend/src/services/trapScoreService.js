@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require("../config/dbConfig");
 // const trapScoreService = require("../services/trapScoreService");
 
@@ -62,7 +63,7 @@ const checkForNull = async (trapScoreData) => {
 
   let causeOfDeathRemark = "";
   let agentRemark = "";
-  console.log(trapScoreData.city)
+  logger.info(trapScoreData.city)
   //1.checking pincode and city-fraud or not'
   const fraudMaster = await getTrapScoreCity({
     city: trapScoreData.city,
@@ -82,8 +83,8 @@ const checkForNull = async (trapScoreData) => {
     trapScoreData.pincodeFlag = "No";
     trapScoreData.cityFlag = "No";
   }
-  console.log(trapScoreData.pincodeFlag)
-  console.log(trapScoreData.cityFlag)
+  logger.info(trapScoreData.pincodeFlag)
+  logger.info(trapScoreData.cityFlag)
 
 
   //2.checking for null values
@@ -222,7 +223,7 @@ const checkForNull = async (trapScoreData) => {
     typeOfClaimRemark +
     causeOfDeathRemark +
     agentRemark;
-  console.log(count)
+  logger.info(count)
   if (count === 0) {
     return { status: "Success" };
     
@@ -274,7 +275,7 @@ const getTrapScore = async (rawData) => {
 
   try {
     const checkForNullValue = await checkForNull(data)
-    console.log(checkForNullValue.status)
+    logger.info(checkForNullValue.status)
 
     if (checkForNullValue.status.toLowerCase() === "success") {
       const fraudMaster = await getTrapScoreCity({ pin, city })
@@ -317,7 +318,7 @@ const getTrapScore = async (rawData) => {
         trapScore += pincodeFlagRow[0].SCORE;
         trapRemark += `\n# ${pincodeFlagRow[0].REMARK}`;
       }
-      console.log("CityFlag and Pinflag done")
+      logger.info("CityFlag and Pinflag done")
 
 
       if (!ageAtDeath) {
@@ -342,7 +343,7 @@ const getTrapScore = async (rawData) => {
         trapRemark += `\n# ${ageAtDeathRow[0].REMARK}`;
       }
 
-      console.log("Age At death is done")
+      logger.info("Age At death is done")
 
       let educationValue;
       if (
@@ -363,7 +364,7 @@ const getTrapScore = async (rawData) => {
       trapScore += educationRow[0].SCORE;
       trapRemark += `\n# ${educationRow[0].REMARK}`;
 
-      console.log("Education done")
+      logger.info("Education done")
 
 
       // Occupation scoring logic
@@ -378,7 +379,7 @@ const getTrapScore = async (rawData) => {
         trapScore += occupationRow[0].SCORE;
         trapRemark += `\n# ${occupationRow[0].REMARK}`;
       }
-      console.log("Occupation works well")
+      logger.info("Occupation works well")
 
       // Product Category scoring logic
       const productCategoryQuery = "SELECT SCORE, REMARK FROM claims_poc.trap_score_master WHERE FIELD_NAME='Product Category' AND VALUE = ?";
@@ -393,7 +394,7 @@ const getTrapScore = async (rawData) => {
         trapRemark += `\n# ${productCategoryRow[0].REMARK}`;
       }
 
-      console.log("Product Category Done")
+      logger.info("Product Category Done")
 
       // Available Sum Assured (avlSA) scoring logic
       if (!avlSA) {
@@ -421,10 +422,10 @@ const getTrapScore = async (rawData) => {
           trapScore += avlSARow[0].SCORE;
           trapRemark += `\n# ${avlSARow[0].REMARK}`;
         } else {
-          console.log("Available SA is not valid")
+          logger.info("Available SA is not valid")
         }
       }
-      console.log("Available SA is done")
+      logger.info("Available SA is done")
 
       if (umCode != null) {
         if (umCode.toLowerCase() === "00006733") {
@@ -481,7 +482,7 @@ const getTrapScore = async (rawData) => {
           channelRemark = channelRow[0].REMARK;
         }
       }
-      console.log("UM code is clear")
+      logger.info("UM code is clear")
       //done and dusted
       // Channel_7_SCB
       if (advisorCode != null) {
@@ -633,7 +634,7 @@ const getTrapScore = async (rawData) => {
         }
       }
 
-      console.log("My part is cleare")
+      logger.info("My part is cleare")
 
       if (advisorClub != null) {
         //23
@@ -641,7 +642,7 @@ const getTrapScore = async (rawData) => {
           const channelQuery =
             "SELECT SCORE,REMARK FROM claims_poc.trap_score_master WHERE FIELD_NAME='Channel' AND VALUE = 'Advisor Club for PSF is D1GG'";
           const [row] = await db.query(channelQuery);
-          // console.log(row)
+          // logger.info(row)
           channelScore = row[0].SCORE;
           channelRemark = row[0].REMARK;
         }
@@ -807,7 +808,7 @@ const getTrapScore = async (rawData) => {
         }
       }
     
-      console.log("advisor club clear...")
+      logger.info("advisor club clear...")
       //42
       if (advisorCategory != null) {
         if (advisorCategory === "AG") {
@@ -891,7 +892,7 @@ const getTrapScore = async (rawData) => {
           trapRemark = trapRemark + "\n# " + row[0].REMARK;
         }
       }
-      console.log("cause of death done")
+      logger.info("cause of death done")
       if (placeOfClaim == null) {
         const placeOfClaimQuery = `SELECT SCORE,REMARK FROM claims_poc.trap_score_master WHERE FIELD_NAME='Place of Death' AND VALUE IS NULL`;
         const [row] = await db.query(placeOfClaimQuery);
@@ -913,7 +914,7 @@ const getTrapScore = async (rawData) => {
         }
       }
     
-      console.log("place of claim done")
+      logger.info("place of claim done")
       if (firPmReceived == null) {
         const firPMrcdQuery = `SELECT SCORE,REMARK FROM claims_poc.trap_score_master WHERE FIELD_NAME='FIR/PM Received' AND VALUE IS NULL`;
         const [row] = await db.query(firPMrcdQuery);
@@ -938,7 +939,7 @@ const getTrapScore = async (rawData) => {
         trapScore = trapScore + row[0].SCORE;
         trapRemark = trapRemark + "\n# " + row[0].REMARK;
       }
-      console.log("fir pm received done")
+      logger.info("fir pm received done")
 
       if (declareByDR == null) {
         const declareByDRQuery = `SELECT SCORE,REMARK FROM claims_poc.trap_score_masterWHERE FIELD_NAME='Death Declared By Doctor' AND VALUE IS NULL`;
@@ -959,7 +960,7 @@ const getTrapScore = async (rawData) => {
         trapRemark = trapRemark + "\n# " + row[0].REMARK;
       }
     
-      console.log("declare by dr done")
+      logger.info("declare by dr done")
       if (policyAge == null) {
         const policyAgeQuery = `SELECT SCORE,REMARK FROM CAPS_TRAPSCORE_MASTER WHERE FIELD_NAME='Policy Duration' AND VALUE IS NULL`;
         const [row] = await db.query(policyAgeQuery);
@@ -996,7 +997,7 @@ const getTrapScore = async (rawData) => {
           trapRemark = trapRemark + "\n# " + row[0].REMARK;
         }
       }
-    console.log("policy age done")
+    logger.info("policy age done")
     
     
     let deathIntimation = 0.0;
@@ -1032,7 +1033,7 @@ const getTrapScore = async (rawData) => {
         trapRemark = trapRemark + "\n# " + row[0].REMARK;
       }
     
-      console.log("death intimation done")
+      logger.info("death intimation done")
       if( claimsRupidiate == null) {
         const claimRepudiateQuery  = `SELECT SCORE,REMARK FROM trap_score_master WHERE FIELD_NAME='Claims Repudiated' AND VALUE IS NULL`;
         const [row] = await db.query(claimRepudiateQuery);
@@ -1059,7 +1060,7 @@ const getTrapScore = async (rawData) => {
         trapRemark = trapRemark + "\n# " + row[0].REMARK;
       }
 
-      console.log("claims repudiate done")
+      logger.info("claims repudiate done")
 
       const trapScoreForClaimID = trapScore / 9.0;
       finalTrapScore = trapScoreForClaimID.toFixed(2).toString();
@@ -1071,7 +1072,7 @@ const getTrapScore = async (rawData) => {
     
     return { trapScoreDate:Date.now(), trapScore:finalTrapScore, trapRemarks: trapRemark }
   } catch (error) {
-    console.log(error);
+    logger.info(error);
     return {
       trapScoreDate: Date.now(),
       trapScore: "0.0",

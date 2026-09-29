@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddAssessorPoolCases = require('../../models/add/CapsAddAssessorPoolCases');
 const CapsAddDetails = require('../../models/add/CapsAddDetails');
 const CapsAddContractDetails = require('../../models/add/CapsAddContractDetails');
@@ -101,7 +102,7 @@ const upsertAssessorPoolCase = async (caseId, exclusionResult, batchId = null, a
         }
 
     } catch (error) {
-        console.error('Error in upsertAssessorPoolCase:', error);
+        logger.error('Error in upsertAssessorPoolCase:', error);
         throw error;
     }
 };
@@ -112,7 +113,7 @@ const refreshAssessorPoolCase = async (caseId, batchId = null) => {
         const exclusionResult = await checkForExclusionRule(caseId);
         return await upsertAssessorPoolCase(caseId, exclusionResult, batchId);
     } catch (error) {
-        console.error('Error in refreshAssessorPoolCase:', error);
+        logger.error('Error in refreshAssessorPoolCase:', error);
         throw error;
     }
 };
@@ -127,7 +128,7 @@ const batchUpsertAssessorPoolCases = async (caseIds, exclusionResults, batchId =
         }
         return results;
     } catch (error) {
-        console.error('Error in batchUpsertAssessorPoolCases:', error);
+        logger.error('Error in batchUpsertAssessorPoolCases:', error);
         throw error;
     }
 };
@@ -150,7 +151,7 @@ const updateAssessorPoolStatus = async (caseIds, status, isExcluded = null) => {
 
         return { affectedRows };
     } catch (error) {
-        console.error('Error in updateAssessorPoolStatus:', error);
+        logger.error('Error in updateAssessorPoolStatus:', error);
         throw error;
     }
 };

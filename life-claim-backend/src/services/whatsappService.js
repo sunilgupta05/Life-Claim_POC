@@ -1,6 +1,12 @@
+const logger = require('../util/logger');
 const axios = require('axios');
 const appConfig = require('../config/configService');
+const { run } = require('../util/resilience');
 const WHATSAPP_API_URL = appConfig.get('WHATSAPP_API_URL') || 'http://192.168.60.62:3002/api/v1/';
+// Resilient send (roadmap 3.1): timeout + circuit breaker + retry/backoff so a
+// dead WhatsApp gateway can't hang the caller. Sends stay best-effort (caught).
+const waTimeout = () => appConfig.getNumber('WHATSAPP_TIMEOUT_MS', 10000);
+const waPost = (url, payload) => run('whatsapp', () => axios.post(url, payload, { timeout: waTimeout() }));
 const maskMobile = (mobileNo) => {
   const digits = String(mobileNo || '').replace(/\D/g, '');
   if (digits.length <= 4) return '****';
@@ -44,17 +50,17 @@ const sendGenericNotification = async (mobileNo, message) => {
     },
   };
 
-  console.log(
+  logger.info(
     'WhatsAppService >> Attempting to send generic message to',
     maskMobile(formattedMobile)
   );
 
   try {
-    const response = await axios.post(url, payload);
-    console.log('WhatsAppService >> Generic message sent successfully');
+    const response = await waPost(url, payload);
+    logger.info('WhatsAppService >> Generic message sent successfully');
     return { success: true, data: response.data };
   } catch (error) {
-    console.error('WhatsAppService >> Error sending generic message:', error.message);
+    logger.error('WhatsAppService >> Error sending generic message:', error.message);
     return { success: false, error: error.message };
   }
 };
@@ -83,14 +89,14 @@ const sendClaimRegistrationNotification = async (mobileNo, name, claimNo) => {
         }
     };
 
-    console.log(`WhatsAppService >> Attempting to send message to ${maskMobile(formattedMobile)} for Claim: ${claimNo}`);
+    logger.info(`WhatsAppService >> Attempting to send message to ${maskMobile(formattedMobile)} for Claim: ${claimNo}`);
 
     try {
-        const response = await axios.post(url, payload);
-        console.log('WhatsAppService >> Message sent successfully');
+        const response = await waPost(url, payload);
+        logger.info('WhatsAppService >> Message sent successfully');
         return { success: true, data: response.data };
     } catch (error) {
-        console.error('WhatsAppService >> Error sending message:', error.message);
+        logger.error('WhatsAppService >> Error sending message:', error.message);
         // We don't throw error to avoid breaking the main claim process
         return { success: false, error: error.message };
     }
@@ -120,13 +126,13 @@ const sendPayoutCompletedNotification = async (mobileNo, name, claimNo, amount) 
         }
     };
 
-    console.log(`WhatsAppService >> Sending Payout Notification to ${maskMobile(formattedMobile)} for Claim: ${claimNo}`);
+    logger.info(`WhatsAppService >> Sending Payout Notification to ${maskMobile(formattedMobile)} for Claim: ${claimNo}`);
 
     try {
-        const response = await axios.post(url, payload);
+        const response = await waPost(url, payload);
         return { success: true, data: response.data };
     } catch (error) {
-        console.error('WhatsAppService >> Error sending payout notification:', error.message);
+        logger.error('WhatsAppService >> Error sending payout notification:', error.message);
         return { success: false, error: error.message };
     }
 };
@@ -163,13 +169,13 @@ const sendStatusChangeNotification = async (mobileNo, name, claimNo, newStatus) 
         }
     };
 
-    console.log(`WhatsAppService >> Status change for ${claimNo} -> "${statusText}" to ${maskMobile(formattedMobile)}`);
+    logger.info(`WhatsAppService >> Status change for ${claimNo} -> "${statusText}" to ${maskMobile(formattedMobile)}`);
 
     try {
-        const response = await axios.post(url, payload);
+        const response = await waPost(url, payload);
         return { success: true, data: response.data };
     } catch (error) {
-        console.error('WhatsAppService >> Error sending status change notification:', error.message);
+        logger.error('WhatsAppService >> Error sending status change notification:', error.message);
         return { success: false, error: error.message };
     }
 };

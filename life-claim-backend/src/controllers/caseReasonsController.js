@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const { getAllCaseReasonsFromDB, getSystemAssessorRemarksFromDB } = require('../dataAccess/caseReasonsDao');
 
 // states will call Dao file to access DB
@@ -6,7 +7,7 @@ const getAllCaseReasons = async (req, res) => {
     const caseReasons = await getAllCaseReasonsFromDB();//will be executed first
     res.json(caseReasons); // Send the result back to the client
   } catch (error) {
-    // console.log("Error: ", error.message);
+    // logger.info("Error: ", error.message);
     res.status(500).json({ error: 'An error occurred while fetching countries' });
   }
 };
@@ -14,7 +15,7 @@ const getAllCaseReasons = async (req, res) => {
 const getSystemAssessorRemarks = async (req, res) => {
   try {
     const  claimId  = req.body.claimId;
-    console.log("getSystemAssessorRemarks >> claimId : ", claimId);
+    logger.info("getSystemAssessorRemarks >> claimId : ", claimId);
     const systemAssessorRemarks = await getSystemAssessorRemarksFromDB(claimId);
     res.json(systemAssessorRemarks);
   } catch (error) {

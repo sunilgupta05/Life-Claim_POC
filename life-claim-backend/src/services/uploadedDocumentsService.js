@@ -1,7 +1,8 @@
+const logger = require('../util/logger');
 const UploadedDocumentDoa = require('../dataAccess/uploadedDocumentsDao')
 
 const UploadedDocumentServiceList = async(claimId) =>{
-    console.log('UploadedDocumentsService.js >>:<<', claimId);
+    logger.info('UploadedDocumentsService.js >>:<<', claimId);
     return UploadedDocumentDoa.UploadedDocMatchList(claimId);
 };
 

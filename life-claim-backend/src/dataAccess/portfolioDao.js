@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require("../config/dbConfig");
 
 // Function to fetch Portfolio Type based on ProductCode, ProductName, and SumAssured
@@ -13,7 +14,7 @@ const getPortfolioFromDB = async (productCode, productName, sumAssured) => {
     `;
 
     const [rows] = await db.query(query, [productCode, productName, sumAssured]);
-    console.log([rows])
+    logger.info([rows])
     return rows.length > 0 ? rows[0].PORTFOLIO_TYPE : null;
   } catch (error) {
     throw new Error("Database error: " + error.message);

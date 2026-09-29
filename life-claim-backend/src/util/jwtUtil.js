@@ -1,5 +1,6 @@
 // backend/util/jwtUtil.js
 
+const logger = require('./logger');
 const jwt = require('jsonwebtoken');
 const appConfig = require('../config/configService');
 const dotenv = require('dotenv');
@@ -22,10 +23,10 @@ const verify = (token) => {
     return jwt.verify(token, SECRET_KEY, { algorithms: [JWT_ALGORITHM] });
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      console.error('Token expired:', error);
+      logger.error('Token expired:', error);
       throw new Error('Token expired');
     }
-    console.error('Error verifying token:', error);
+    logger.error('Error verifying token:', error);
     throw new Error('Invalid token');
   }
 };

@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddDecisionMaster = require('../../models/add/CapsAddDecisionMaster');
 const CapsAddDecision = require('../../models/add/CapsAddDecision');
 const { assertCaseEditable } = require('../../util/capsAddCaseGuards');
@@ -9,7 +10,7 @@ const getDecisionMasterData = async () => {
     try {
         return await CapsAddDecisionMaster.findAll();
     } catch (error) {
-        console.error('Error in getDecisionMasterData DAO:', error);
+        logger.error('Error in getDecisionMasterData DAO:', error);
         throw error;
     }
 };
@@ -39,7 +40,7 @@ const saveDecision = async (decisionData, username) => {
 
         return { decision, created };
     } catch (error) {
-        console.error('Error in saveDecision DAO:', error);
+        logger.error('Error in saveDecision DAO:', error);
         throw error;
     }
 };

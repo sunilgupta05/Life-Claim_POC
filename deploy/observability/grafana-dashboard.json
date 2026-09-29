@@ -1,0 +1,53 @@
+{
+  "__comment": "Life Claims backend dashboard (roadmap 4.3). Import into Grafana; select your Prometheus datasource.",
+  "title": "Life Claims — Backend",
+  "uid": "life-claim-backend",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      { "name": "datasource", "type": "datasource", "query": "prometheus", "current": {} }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Request rate (req/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total[5m]))", "legendFormat": "all", "refId": "A" },
+        { "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "5xx", "refId": "B" }
+      ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "5xx error rate",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.05 } ] } } },
+      "targets": [ { "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1)", "refId": "A" } ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "p95 latency",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 2 } ] } } },
+      "targets": [ { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "refId": "A" } ]
+    },
+    {
+      "id": 4, "type": "state-timeline", "title": "Integration circuit breakers",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "closed", "color": "green" }, "0.5": { "text": "half-open", "color": "orange" }, "1": { "text": "open", "color": "red" } } } ] } },
+      "targets": [ { "expr": "integration_breaker_state", "legendFormat": "{{integration}}", "refId": "A" } ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Heap used (MB)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "decmbytes" } },
+      "targets": [ { "expr": "nodejs_heap_size_used_bytes / 1024 / 1024", "legendFormat": "heap", "refId": "A" } ]
+    }
+  ]
+}

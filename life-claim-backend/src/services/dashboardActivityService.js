@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const dashboardActivityDao = require('../dataAccess/dashboardActivityDao');
 const appConfig = require('../config/configService');
 
@@ -105,9 +106,9 @@ const parseRolesSafe = (rawRoles) => {
 const getRecentActivitiesService = async () => {
   try {
     const rows = await dashboardActivityDao.getRecentActivities();
-    console.log('Service >> DAO returned rows:', rows.length);
+    logger.info('Service >> DAO returned rows:', rows.length);
     if (rows.length > 0) {
-      console.log('Service >> First row example:', JSON.stringify(rows[0], null, 2));
+      logger.info('Service >> First row example:', JSON.stringify(rows[0], null, 2));
     }
 
     // Process rows to create readable activity pulse messages.
@@ -135,7 +136,7 @@ const getRecentActivitiesService = async () => {
       mapRowToActivity(row, diffSeconds)
     );
   } catch (error) {
-    console.error('Error in dashboard activity service:', error);
+    logger.error('Error in dashboard activity service:', error);
     throw error;
   }
 };

@@ -19,6 +19,7 @@
 // authorize()/protect() route guards yet. It powers the opt-in
 // requirePermission() middleware and the /api/rbac admin API.
 
+const logger = require('../util/logger');
 const dao = require('../dataAccess/rbacDao');
 const moduleDao = require('../dataAccess/rbacModuleDao');
 const { hasSuperUserRole } = require('../util/superuserRoles');
@@ -124,7 +125,7 @@ async function reload() {
       modules = await moduleDao.getModules();
     } catch (mErr) {
       if (!(mErr && mErr.code === moduleDao.TABLE_MISSING)) {
-        console.warn('[rbac] module load failed, using registry defaults:', mErr?.message);
+        logger.warn('[rbac] module load failed, using registry defaults:', mErr?.message);
       }
     }
     snapshot = { roles, permissions, rolePermissions, modules };
@@ -137,11 +138,11 @@ async function reload() {
     ready = true;
     if (err && err.code === dao.TABLE_MISSING) {
       if (!warnedMissing) {
-        console.warn('[rbac] rbac_* tables not migrated yet — RBAC checks deny by default (run npm run migrate).');
+        logger.warn('[rbac] rbac_* tables not migrated yet — RBAC checks deny by default (run npm run migrate).');
         warnedMissing = true;
       }
     } else {
-      console.warn('[rbac] reload failed, keeping cached values:', err?.message);
+      logger.warn('[rbac] reload failed, keeping cached values:', err?.message);
     }
     return false;
   }

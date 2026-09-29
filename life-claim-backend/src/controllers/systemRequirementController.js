@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const { getSystemRequirementFromDB } = require("../dataAccess/systemRequirementDao");
 
 const getSystemRequirement = async (req, res) => {
@@ -12,7 +13,7 @@ const getSystemRequirement = async (req, res) => {
     
     res.json({ requirement });
   } catch (error) {
-    console.error("Error:", error.message);
+    logger.error("Error:", error.message);
     res.status(500).json({ error: "An error occurred while fetching portfolio" });
   }
 };

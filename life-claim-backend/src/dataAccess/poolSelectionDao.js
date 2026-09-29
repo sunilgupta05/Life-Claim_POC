@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig'); // Assuming you already have dbConfig set up
 const claimsService = require('../services/claimsService')
 const StatusHistory = require('../models/StatusHistory');
@@ -5,7 +6,7 @@ const StatusHistory = require('../models/StatusHistory');
 const getPoolDataInDB = async (selectedPool) => {
   const query = 'select CLAIM_NUMBER,POLICY_ID,STATUS,ROLE,CREATED_AT,CREATED_BY from claims_poc.claims where role=? and ASSIGNED_TO is null';
   const [rows] = await db.execute(query, [selectedPool]);
-  //console.log('DB query result:', rows); // Log the query result
+  //logger.info('DB query result:', rows); // Log the query result
   return rows;
 };
 
@@ -21,10 +22,10 @@ const updateAssignedUserInDB = async (claimNumber, LoggedUser, role) => {
     "STATUS": role==='Assessor' ? "Pending Assessor Action" : "Pending Verifier Action"
   }
 
-  // console.log(role)
+  // logger.info(role)
   const status_change = await claimsService.changeStatus(claimNumber, status.STATUS, LoggedUser);
   const status_history = await StatusHistory.create(status)
-  // console.log(rows)
+  // logger.info(rows)
   return rows;
 };
 

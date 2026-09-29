@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddRawData = require('../../models/add/CapsAddRawData');
 const CapsAddDetails = require('../../models/add/CapsAddDetails');
 const CapsAddContractDetails = require('../../models/add/CapsAddContractDetails');
@@ -24,7 +25,7 @@ function trimInitiationRemarks(value) {
 const enrichCaseData = async (caseId, policyNo, username = 'System') => {
     const { data: apiResponse, formattedPolicyNo } = await fetchPolicySearch(policyNo);
 
-    console.log(`EnrichmentService >> Enriching Case: ${caseId}, Policy: ${formattedPolicyNo}`);
+    logger.info(`EnrichmentService >> Enriching Case: ${caseId}, Policy: ${formattedPolicyNo}`);
 
     const finalElement = assertPolicySearchHasData(apiResponse, formattedPolicyNo);
 
@@ -139,16 +140,16 @@ const enrichCaseData = async (caseId, policyNo, username = 'System') => {
  * Service to enrich raw excel data with Life Asia API information
  */
 const processRawDataBatch = async () => {
-    console.log('EnrichmentService >> Starting background processing...');
+    logger.info('EnrichmentService >> Starting background processing...');
     try {
         const pendingRecords = await CapsAddRawData.findAll({ where: { processed_flag: 0 } });
         if (pendingRecords.length === 0) return;
-        console.log(`EnrichmentService >> Found ${pendingRecords.length} records to process.`);
+        logger.info(`EnrichmentService >> Found ${pendingRecords.length} records to process.`);
         for (const record of pendingRecords) {
             await processSingleRecord(record);
         }
     } catch (error) {
-        console.error('EnrichmentService >> Batch processing error:', error);
+        logger.error('EnrichmentService >> Batch processing error:', error);
     }
 };
 
@@ -183,16 +184,16 @@ const processSingleRecord = async (record) => {
             claimNo: `CAPS-${createdCase.case_id}`,
             email: enrichResult.email,
           }).catch((err) => {
-            console.error('EnrichmentService >> CAPS notify error:', err.message || err);
+            logger.error('EnrichmentService >> CAPS notify error:', err.message || err);
           });
         }
 
         // Mark raw record as successful
         await record.update({ processed_flag: 1, modified_on: new Date(), initiation_remarks: 'Successfully enriched' });
-        console.log(`EnrichmentService >> Successfully processed Policy: ${policyNo}`);
+        logger.info(`EnrichmentService >> Successfully processed Policy: ${policyNo}`);
 
     } catch (error) {
-        console.error(`EnrichmentService >> Error processing Policy ${policyNo}:`, error.message);
+        logger.error(`EnrichmentService >> Error processing Policy ${policyNo}:`, error.message);
         await record.update({ processed_flag: 2, initiation_remarks: error.message.substring(0, 499), modified_on: new Date() });
     }
 };

@@ -37,7 +37,7 @@ const createRole = async (req, res, next) => {
     role_description:roleDes
   }
 
-  console.log(roleInfo); // check 2
+  logger.info(roleInfo); // check 2
   try {
     const newRole = await roleService.createRole(roleInfo);
     logger.info(`[ ${roleName} ] Role created Sucessfully`);

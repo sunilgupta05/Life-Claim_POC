@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const poolSelectionService = require('../services/poolSelectionService');
 
 const userRoles = (req) => {
@@ -30,7 +31,7 @@ const getSelectedPool = async (req, res) => {
         const poolData = await poolSelectionService.getPoolDataService(role);
         res.json(poolData);
     } catch (error) {
-        console.error('Error fetching pool data:', error);
+        logger.error('Error fetching pool data:', error);
         res.status(500).json({ message: 'Error fetching pool data' });
     }
 };
@@ -66,7 +67,7 @@ const updateAssignedUser = async (req, res) => {
         }
         return res.status(400).json({ message: 'Checkbox not ticked.' });
     } catch (error) {
-        console.error('Error updating AssignedUser:', error);
+        logger.error('Error updating AssignedUser:', error);
         res.status(500).json({ message: 'Error updating AssignedUser' });
     }
 };

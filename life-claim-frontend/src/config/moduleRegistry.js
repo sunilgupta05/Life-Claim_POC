@@ -18,12 +18,13 @@
  */
 import {
   LayoutDashboard, Search, FileText, CheckSquare,
-  Layers, ClipboardList, ScanSearch, BarChart3, ShieldCheck,
+  Layers, ClipboardList, ScanSearch, BarChart3, ShieldCheck, Palette, SlidersHorizontal,
+  Activity, ServerCog,
 } from 'lucide-react'
 import { SUPERUSER_LABEL, SUPERUSER_ROUTE_ROLES } from '../util/superuserRole'
 
 // Nav module ids that a superuser-only user (no operational role) may see.
-export const SUPERUSER_ONLY_NAV = ['superuser-overview', 'superuser-claims', 'audit-log', 'access-control']
+export const SUPERUSER_ONLY_NAV = ['superuser-overview', 'superuser-claims', 'audit-log', 'access-control', 'branding', 'form-fields', 'integration-health', 'it-admin']
 
 /**
  * One entry per feature module. Fields mirror the former NAV_ITEMS verbatim:
@@ -44,6 +45,10 @@ export const MODULES = [
   { id: 'add',                path: '/add-screen',            icon: ScanSearch,      label: 'Advance Intelligence',          roles: ['Assessor', 'Verifier'],operational: true },
   { id: 'audit-log',          path: '/audit-log',             icon: ClipboardList,   label: 'Login Sessions',                roles: ['superuser'], guardRoles: SUPERUSER_ROUTE_ROLES, superuserNav: true },
   { id: 'access-control',     path: '/superuser/access',      icon: ShieldCheck,     label: 'Access Control',                roles: ['superuser'], guardRoles: SUPERUSER_ROUTE_ROLES, superuserNav: true },
+  { id: 'branding',           path: '/superuser/branding',    icon: Palette,         label: 'Branding',                      roles: ['superuser'], guardRoles: SUPERUSER_ROUTE_ROLES, superuserNav: true },
+  { id: 'form-fields',        path: '/superuser/forms',       icon: SlidersHorizontal, label: 'Form Fields',                 roles: ['superuser'], guardRoles: SUPERUSER_ROUTE_ROLES, superuserNav: true },
+  { id: 'integration-health', path: '/superuser/health',      icon: Activity,        label: 'Integration Health',            roles: ['superuser'], guardRoles: SUPERUSER_ROUTE_ROLES, superuserNav: true },
+  { id: 'it-admin',           path: '/superuser/settings',    icon: ServerCog,       label: 'System Settings',               roles: ['superuser'], guardRoles: SUPERUSER_ROUTE_ROLES, superuserNav: true },
 ]
 
 const MODULE_BY_ID = Object.fromEntries(MODULES.map((m) => [m.id, m]))
@@ -72,6 +77,10 @@ export const ROUTE_MODULE = {
   '/superuser/workload': 'superuser-overview',
   '/superuser/claim-search': 'superuser-claims',
   '/superuser/access': 'access-control',
+  '/superuser/branding': 'branding',
+  '/superuser/forms': 'form-fields',
+  '/superuser/health': 'integration-health',
+  '/superuser/settings': 'it-admin',
 }
 
 // ---- runtime overlay from the DB (roadmap 1.5) -----------------------------

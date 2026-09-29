@@ -1,9 +1,10 @@
 
+const logger = require('../../util/logger');
 const CapsAddCaseSearchDoa = require('../../dataAccess/add/capsAddCaseSearchDoa');
 
 const getCaseSearchController = async (req, res, next) => {
     const { attribute, value, limit, offset } = req.body;
-    console.log('caseSearchController.js >> getCaseSearchController request received');
+    logger.info('caseSearchController.js >> getCaseSearchController request received');
 
     try {
         const result = await CapsAddCaseSearchDoa.caseSearchData(attribute, value, limit, offset);

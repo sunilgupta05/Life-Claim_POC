@@ -1,5 +1,6 @@
 const axios = require('axios');
 const appConfig = require('../config/configService');
+const { run } = require('../util/resilience');
 
 /**
  * Transaction API (Life Asia) base URL.
@@ -33,7 +34,14 @@ const fetchPolicySearch = async (policyNo) => {
     throw new Error('Policy number is required');
   }
   const url = buildPolicySearchUrl(formattedPolicyNo);
-  const response = await axios.get(url);
+  // Resilient call (roadmap 3.1): circuit breaker + retry/backoff; the axios
+  // timeout (below, also a hard backstop) prevents an indefinite hang.
+  const timeout = appConfig.getNumber('TRANSACTION_API_TIMEOUT_MS', undefined);
+  const response = await run(
+    'transaction-api',
+    () => axios.get(url, timeout ? { timeout } : { timeout: 10000 }),
+    timeout ? { timeout } : undefined
+  );
   return { data: response.data || {}, formattedPolicyNo };
 };
 

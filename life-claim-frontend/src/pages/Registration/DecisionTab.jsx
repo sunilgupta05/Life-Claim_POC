@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useRegTokens } from '../../pages/Registration/shared'
 import { DECISION_SUB_TAB, getDecisionSubTabs } from '../../util/decisionSubTabs'
-import { Field, Input, Select, Textarea, SubTabNav, Grid, Btn, InfoCard } from './shared'
+import { Field, Select, Textarea, SubTabNav, Grid, Btn, InfoCard } from './shared'
+import SchemaForm from '../../components/forms/SchemaForm'
+import { useFormFields } from '../../hooks/useFormFields'
 import { getSystemDecision } from '../../services/masterService'
 import { registerClaim as registerClaimAPI } from '../../services/claimsService'
 import { useToast } from '../../components/Toast'
@@ -73,6 +75,14 @@ export default function DecisionTab({
   const [submitting, setSubmitting] = useState(false)
   const [claimNo, setClaimNo] = useState(null)
   const [acuityResult, setAcuityResult] = useState(null)
+
+  // Schema-driven, per-deployment-configurable sub-forms (roadmap 2.2/2.3). The
+  // Accessor Decision + Verification field groups are now described by catalog
+  // data and rendered by SchemaForm; hidden/required come from form_field_config.
+  // Same wizard data keys → save/submit behaviour unchanged.
+  const assessorForm = useFormFields('registration.decision.assessor')
+  const verificationForm = useFormFields('registration.decision.verification')
+  const onFieldChange = (name, val) => update({ [name]: val })
 
   const handleGenSystemDecision = async () => {
     setLoadingSys(true)
@@ -221,23 +231,7 @@ export default function DecisionTab({
       {subTab === DECISION_SUB_TAB.ACCESSOR && (
         <div>
           {!data.sysRecommendation && <div style={{ marginBottom:'16px' }}><InfoCard type='warning'>Please generate the System Decision first before entering the Accessor Decision.</InfoCard></div>}
-          <Grid cols={2}>
-            <Field label="Decision" required>
-              <Select value={data.accessorDecision} onChange={e=>update({accessorDecision:e.target.value})} options={['Approve','Reject','Refer to Verifier','Request More Documents','Repudiate']}/>
-            </Field>
-            <Field label="Recommended Amount">
-              <Input value={data.accessorAmount} onChange={e=>update({accessorAmount:e.target.value})} placeholder={`e.g. ${data.sysPayableAmount||'1250000'}`}/>
-            </Field>
-            <Field label="Reason / Remarks" full>
-              <Textarea value={data.accessorReason} onChange={e=>update({accessorReason:e.target.value})} placeholder="Provide detailed reasoning for your decision..." rows={5}/>
-            </Field>
-            <Field label="Assessor Name">
-              <Input value={data.accessorName} onChange={e=>update({accessorName:e.target.value})} placeholder="Your name"/>
-            </Field>
-            <Field label="Decision Date">
-              <Input type="date" value={data.accessorDecisionDate} onChange={e=>update({accessorDecisionDate:e.target.value})}/>
-            </Field>
-          </Grid>
+          <SchemaForm schema={assessorForm.fields} values={data} onChange={onFieldChange} columns={2} />
         </div>
       )}
 
@@ -246,23 +240,7 @@ export default function DecisionTab({
         <div>
           <InfoCard type='info'>Verification details are completed by the Verifier role after the Assessor submits their decision.</InfoCard>
           <div style={{ marginTop:'16px' }}>
-            <Grid cols={2}>
-              <Field label="Verification Status">
-                <Select value={data.verificationStatus} onChange={e=>update({verificationStatus:e.target.value})} options={['Pending','In Progress','Verified','Rejected']}/>
-              </Field>
-              <Field label="Verifier Name">
-                <Input value={data.verifierName} onChange={e=>update({verifierName:e.target.value})} placeholder="Verifier name"/>
-              </Field>
-              <Field label="Verification Date">
-                <Input type="date" value={data.verificationDate} onChange={e=>update({verificationDate:e.target.value})}/>
-              </Field>
-              <Field label="Send Mail on Completion">
-                <Select value={data.sendMail} onChange={e=>update({sendMail:e.target.value})} options={['Yes','No']}/>
-              </Field>
-              <Field label="Verification Remarks" full>
-                <Textarea value={data.verificationRemarks} onChange={e=>update({verificationRemarks:e.target.value})} placeholder="Enter verification remarks..." rows={4}/>
-              </Field>
-            </Grid>
+            <SchemaForm schema={verificationForm.fields} values={data} onChange={onFieldChange} columns={2} />
           </div>
         </div>
       )}

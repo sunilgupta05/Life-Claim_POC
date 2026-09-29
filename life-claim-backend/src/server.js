@@ -1,5 +1,12 @@
 // backend/server.js
 
+// Distributed tracing (roadmap 4.3) — must run BEFORE any other module is required
+// so OpenTelemetry can patch http/express/mysql/amqp. No-op unless the OTEL SDK is
+// installed and OTEL_EXPORTER_OTLP_ENDPOINT is set (see util/tracing.js).
+const { startTracing } = require('./util/tracing');
+const tracing = startTracing();
+
+const logger = require('./util/logger');
 const http = require('http');
 const appConfig = require('./config/configService');
 const https = require('https');
@@ -7,6 +14,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const app = require('./app');
+
+if (tracing.enabled) logger.info(`[tracing] OpenTelemetry enabled → ${tracing.endpoint}`);
 
 // Backend startup rules:
 // - same code runs in local and deployment
@@ -31,18 +40,18 @@ const useHttps = USE_HTTPS && certExists && keyExists;
 function startServer(server) {
   server.listen(PORT, HOST, () => {
     const protocol = useHttps ? 'https' : 'http';
-    console.log(`✓ Server is running on ${protocol}://${SERVER_IP}:${PORT}`);
-    console.log(`✓ Binding to: ${HOST}:${PORT}`);
+    logger.info(`✓ Server is running on ${protocol}://${SERVER_IP}:${PORT}`);
+    logger.info(`✓ Binding to: ${HOST}:${PORT}`);
     if (useHttps) {
-      console.log('✓ Using HTTPS with self-signed certificates');
+      logger.info('✓ Using HTTPS with self-signed certificates');
     }
   });
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`❌ Port ${PORT} is already in use. Try killing other processes or change PORT.`);
+      logger.error(`❌ Port ${PORT} is already in use. Try killing other processes or change PORT.`);
     } else {
-      console.error('❌ Server error:', err.message);
+      logger.error('❌ Server error:', err.message);
     }
     process.exit(1);
   });

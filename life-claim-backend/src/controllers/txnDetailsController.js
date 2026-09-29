@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const { error } = require('winston');
 const appConfig = require('../config/configService');
 
@@ -7,7 +8,7 @@ const {
   formatPolicyNumber,
 } = require('../services/transactionApiClient');
 
-console.log('txnDetailsController >> transaction service:', getTransactionApiBase());
+logger.info('txnDetailsController >> transaction service:', getTransactionApiBase());
 const exposeErrorDetails = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
 
 // Transaction API calling 
@@ -18,9 +19,9 @@ const getTxnDetailsController = async (req, res) => {
         const txnDetails = await fetch(
           `${getTransactionApiBase()}/api/transactionDetails/${formattedPolicyId}/${txnDate}`
         );
-        //console.log('txnDetailsControllerjs >> getTxnDetailsController >> txnDetails :>', txnDetails);
+        //logger.info('txnDetailsControllerjs >> getTxnDetailsController >> txnDetails :>', txnDetails);
         const data = await txnDetails.json();
-       // console.log('txnDetailsControllerjs >> getTxnDetailsController >> txnDetails data :>', data );
+       // logger.info('txnDetailsControllerjs >> getTxnDetailsController >> txnDetails data :>', data );
          
         if (txnDetails.status === 200) {
             return res.status(200).json(data);
@@ -30,7 +31,7 @@ const getTxnDetailsController = async (req, res) => {
             ...(exposeErrorDetails ? { detail: data, status: txnDetails.status } : {}),
         });
     } catch (error) {
-        console.error('txnDetailsControllerjs >> getTxnDetailsController >> error :>', error);
+        logger.error('txnDetailsControllerjs >> getTxnDetailsController >> error :>', error);
         res.status(503).json({ 
             message: 'Service unavailable',
             ...(exposeErrorDetails ? {
@@ -59,7 +60,7 @@ const getTransactionApiDetailsController = async (req, res) => {
         }
         return res.status(200).json({ policyNumber, txnDate, rows, count: rows.length, dateMismatch });
     } catch (error) {
-        console.error('getTransactionApiDetailsController error:', error);
+        logger.error('getTransactionApiDetailsController error:', error);
         return res.status(500).json({
             message: 'Internal server error',
             ...(exposeErrorDetails ? { detail: error.message || 'Transaction details lookup failed' } : {}),
@@ -69,9 +70,9 @@ const getTransactionApiDetailsController = async (req, res) => {
 
 const saveTransactionApiDetailsController = async (req, res) => {
     try {
-        console.log('txnDetailsController >> saveTransactionApiDetailsController request received');
+        logger.info('txnDetailsController >> saveTransactionApiDetailsController request received');
         const savedTransactionApiDetails = await saveTransactionApiDetailsService(req.body);
-        console.log('txnDetailsController >> saveTransactionApiDetailsController completed');
+        logger.info('txnDetailsController >> saveTransactionApiDetailsController completed');
         if (!savedTransactionApiDetails || savedTransactionApiDetails instanceof Error) {
             return res.status(500).json({
                 message: 'Failed to persist transaction details',
@@ -82,7 +83,7 @@ const saveTransactionApiDetailsController = async (req, res) => {
         }
         return res.status(200).json(savedTransactionApiDetails);
     } catch (error) {
-        console.error('saveTransactionApiDetailsController error:', error);
+        logger.error('saveTransactionApiDetailsController error:', error);
         return res.status(500).json({
             message: 'Internal server error',
             ...(exposeErrorDetails ? { detail: error.message || 'Transaction save failed' } : {}),

@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const capsAssessmentPoolDOA = require('../../dataAccess/add/capsAssessmentPoolDoa');
 const appConfig = require('../../config/configService');
 const { extractKeycloakUsername } = require('../../util/keycloakRoles');
@@ -12,7 +13,7 @@ const internalError = (res, error) =>
   });
 
 const getAssessmentPoolData = async (req, res) => {
-    console.log('controller>>capsAssessmentPoolController>>getAssessmentPoolData request received');
+    logger.info('controller>>capsAssessmentPoolController>>getAssessmentPoolData request received');
 
     try{
         const { attribute, value, exclusionFilter, limit, offset } = req.body;
@@ -20,7 +21,7 @@ const getAssessmentPoolData = async (req, res) => {
         // Use new function to fetch from CAPS_ADD_ASSESSOR_POOL_CASES
         const response = await capsAssessmentPoolDOA.getAssessorPoolCases(attribute, value, exclusionFilter, limit, offset);
         
-        console.log('controller>>capsAssessmentPoolController>>getAssessmentPoolData>>response length: ', response?.data?.length, 'Total Count:', response?.totalCount);
+        logger.info('controller>>capsAssessmentPoolController>>getAssessmentPoolData>>response length: ', response?.data?.length, 'Total Count:', response?.totalCount);
         res.status(200).json({
             success: true,
             message: `Successfully fetched ${response?.data?.length || 0} records`,
@@ -28,7 +29,7 @@ const getAssessmentPoolData = async (req, res) => {
             totalCount: response.totalCount
         });
     }catch(error){
-        console.log(` controller>>capsAssessmentPoolController>>getAssessmentPoolData>>error: `, error);
+        logger.info(` controller>>capsAssessmentPoolController>>getAssessmentPoolData>>error: `, error);
         internalError(res, error);
     }
 }
@@ -51,7 +52,7 @@ const getCaseDetails = async (req, res) => {
             data: data
         });
     } catch (error) {
-        console.error('controller>>capsAssessmentPoolController>>getCaseDetails>>error:', error);
+        logger.error('controller>>capsAssessmentPoolController>>getCaseDetails>>error:', error);
         internalError(res, error);
     }
 };
@@ -70,7 +71,7 @@ const refreshCaseData = async (req, res) => {
             message: 'Case data refreshed successfully from Life Asia'
         });
     } catch (error) {
-        console.error('controller>>capsAssessmentPoolController>>refreshCaseData>>error:', error);
+        logger.error('controller>>capsAssessmentPoolController>>refreshCaseData>>error:', error);
         internalError(res, error);
     }
 };

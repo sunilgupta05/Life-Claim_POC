@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 var nodemailer = require('nodemailer');
 const capsEmailCommMasterDAO = require ('../dataAccess/emailCommunicationDao');
 const capsClaimDetailsDao = require ('../dataAccess/claimDao');
@@ -21,7 +22,7 @@ const sendMail  = async (id) => {
     try {
 
         const capsClaimDetailsObj = await capsClaimDetailsDao.getClaimDetailsById(id);
-        console.log(capsClaimDetailsObj);
+        logger.info(capsClaimDetailsObj);
         const claimStatus = capsClaimDetailsObj.CLAIMSTATUS;
         const level = 'REGISTRATION'; 
 
@@ -37,18 +38,18 @@ const sendMail  = async (id) => {
         
         transporter.sendMail(mailOptions, function(error, info){
             if (error) {
-              console.log(error);
+              logger.info(error);
             } else {
-              console.log('Email sent: ' + info.response);
+              logger.info('Email sent: ' + info.response);
             }
           });
-        console.log('Records:', records);
+        logger.info('Records:', records);
     } catch (error) {
-        console.error('Error:', error);
+        logger.error('Error:', error);
     }
 }
 
-console.log(sendMail(195));
+logger.info(sendMail(195));
 module.exports = {
     sendMail
     }

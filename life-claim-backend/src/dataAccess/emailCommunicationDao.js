@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const CapsEmailCommMaster = require('../models/CapsEmailCommMaster'); // Adjust the path to your model
 
 /**
@@ -16,7 +17,7 @@ async function getByClaimStatusAndLevel(claimStatus, level) {
         });
         return records;
     } catch (error) {
-        console.error('Error fetching records:', error);
+        logger.error('Error fetching records:', error);
         throw error;
     }
 }

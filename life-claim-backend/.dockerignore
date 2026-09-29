@@ -1,0 +1,16 @@
+node_modules
+coverage
+logs
+uploads
+*.log
+.env
+.env.*
+cert.pem
+key.pem
+Dockerfile
+.dockerignore
+.git
+# stray capture files (see CLAUDE.md repo hygiene)
+Life Claim Backend
+Life-Claim-Backend
+Life-Claim-Backend1

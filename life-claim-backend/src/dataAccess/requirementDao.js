@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig');
 
 
@@ -7,7 +8,7 @@ const getAllRequirements = async () => {
         return rows        
     } catch (error) {
 
-        console.log(error.message)
+        logger.info(error.message)
         throw new Error("Requirement error: " ,error.message);
         
     }

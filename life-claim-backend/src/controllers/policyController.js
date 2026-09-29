@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const {
   getTransactionApiBase,
   fetchPolicySearch,
@@ -36,7 +37,7 @@ const getAgentRepudiationDetails = async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    console.log(error);
+    logger.info(error);
     res.status(500).json({ error: 'An error occurred while fetching the details.' });
   }
 };

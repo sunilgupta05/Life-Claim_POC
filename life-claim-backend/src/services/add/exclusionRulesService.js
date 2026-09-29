@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddExclusionMaster = require('../../models/add/CapsAddExclusionMaster');
 const CapsAddDetails = require('../../models/add/CapsAddDetails');
 const CapsAddContractDetails = require('../../models/add/CapsAddContractDetails');
@@ -123,7 +124,7 @@ const checkForExclusionRule = async (caseId) => {
         const [rows] = await db.query(queryText, [caseId]);
 
         if (!rows || rows.length === 0) {
-            console.log(`Case ID ${caseId} not found`);
+            logger.info(`Case ID ${caseId} not found`);
             return { exclusionApplied: false, exclusionType: null };
         }
 
@@ -202,7 +203,7 @@ const checkForExclusionRule = async (caseId) => {
                     exclusionType = droolsResult.exclusionType || null;
                 }
             } catch (rulesErr) {
-                console.warn(
+                logger.warn(
                     'exclusionRulesService >> Drools failed, using JS fallback:',
                     rulesErr.message
                 );
@@ -225,7 +226,7 @@ const checkForExclusionRule = async (caseId) => {
 
         return { exclusionApplied, exclusionType };
     } catch (error) {
-        console.error('Error in checkForExclusionRule:', error);
+        logger.error('Error in checkForExclusionRule:', error);
         throw error;
     }
 };

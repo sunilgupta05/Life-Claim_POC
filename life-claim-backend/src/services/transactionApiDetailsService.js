@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const { getTransactionApiDBDetails, saveTransactionApiDetails } = require('../dataAccess/transactionApiDetails');
 
 const getTransactionApiDBDetailsService = async (policyNumber, txnDate) => {
@@ -5,7 +6,7 @@ const getTransactionApiDBDetailsService = async (policyNumber, txnDate) => {
         const transactionApiDetails = await getTransactionApiDBDetails(policyNumber, txnDate);
         return transactionApiDetails;
     } catch (error) {
-        console.log(' services >> txnTransactionApiDetailsService.js >> getTxnTransactionApiDetailsService >> error :>', error);
+        logger.info(' services >> txnTransactionApiDetailsService.js >> getTxnTransactionApiDetailsService >> error :>', error);
         return error;
        // throw new Error('Service error: ' + error.message);
     
@@ -15,10 +16,10 @@ const getTransactionApiDBDetailsService = async (policyNumber, txnDate) => {
 const saveTransactionApiDetailsService = async (transactionApiDetails) => {
     try {
         const savedTransactionApiDetails = await saveTransactionApiDetails(transactionApiDetails);
-        console.log(' services >> txnTransactionApiDetailsService.js >> saveTxnTransactionApiDetailsService >> savedTransactionApiDetails :>', savedTransactionApiDetails);
+        logger.info(' services >> txnTransactionApiDetailsService.js >> saveTxnTransactionApiDetailsService >> savedTransactionApiDetails :>', savedTransactionApiDetails);
         return savedTransactionApiDetails;
     } catch (error) {
-        console.log(' services >> txnTransactionApiDetailsService.js >> saveTxnTransactionApiDetailsService >> error :>', error);
+        logger.info(' services >> txnTransactionApiDetailsService.js >> saveTxnTransactionApiDetailsService >> error :>', error);
         return error;
        // throw new Error('Service error: ' + error.message);
     

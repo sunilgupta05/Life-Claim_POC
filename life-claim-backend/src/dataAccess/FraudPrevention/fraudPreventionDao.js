@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const db = require('../../config/dbConfig');
 
 // VAPT: scoped to the caller's own claim — the controller already extracted
@@ -13,7 +14,7 @@ const claimantBankdetailsCheck = async (claimNumber) => {
                and c.claim_number = ?`,
             [claimNumber]
         );
-        console.log('DataAccess >> FraudPrevention >> fraudPreventionDao.js >> result :>', result);
+        logger.info('DataAccess >> FraudPrevention >> fraudPreventionDao.js >> result :>', result);
         return result[0];
     } catch (error) {
         //throw new Error('Database error >> claimantBankdetailsCheck : ' + error.message);
@@ -51,11 +52,11 @@ const mobileNumberCheck = async (la_number) => {
 }
 
 const addRuleRemarksDetails = async (feedback, claimNumber, role, username) => {
-    console.log('DataAccess >> FraudPrevention >> fraudPreventionDao.js >> addRuleRemarksDetails >> feedback <:>', feedback, 'feedback.length : >', feedback.length);
+    logger.info('DataAccess >> FraudPrevention >> fraudPreventionDao.js >> addRuleRemarksDetails >> feedback <:>', feedback, 'feedback.length : >', feedback.length);
     const skippedRules = [];
     try {
         if (!feedback || Object.keys(feedback).length === 0) {
-            console.log('Feedback is empty.');
+            logger.info('Feedback is empty.');
             return skippedRules;
         }
         for (const [ruleKey, ruleData] of Object.entries(feedback)) {   
@@ -80,14 +81,14 @@ const addRuleRemarksDetails = async (feedback, claimNumber, role, username) => {
                 try {
 
                     await db.query(sql, [ claimNumber, ruleNumber, username, role, status, remark]);
-                    console.log(`Inserted  ${ruleKey}: claimNumber = ${claimNumber} ruleNumber = ${ruleNumber} username =  ${username} role = ${role} status = ${status}, remarks = ${remark}`);
+                    logger.info(`Inserted  ${ruleKey}: claimNumber = ${claimNumber} ruleNumber = ${ruleNumber} username =  ${username} role = ${role} status = ${status}, remarks = ${remark}`);
                 } catch (err) {
-                    console.error(`Failed to insert ${ruleKey}`, err);
+                    logger.error(`Failed to insert ${ruleKey}`, err);
                     return {sucess: false, message: ` Error : ${err}` };
                 }
             } else {
                 skippedRules.push(ruleKey);
-                console.log(`Skipped ${ruleKey} (no valid data)`);
+                logger.info(`Skipped ${ruleKey} (no valid data)`);
             }
         }
 
@@ -111,10 +112,10 @@ const getEagleRuleRemarksDetails = async (claimNumber) => {
 
 const updateCapsEagleRuleDetails = async (updatedFeedback) => {
 
-    console.log('dataAccess >> FraudPrevention >> fraudPreventionDao.js >> updateCapsEagleRuleDetails >updatedFeedback  >:<', updatedFeedback);
+    logger.info('dataAccess >> FraudPrevention >> fraudPreventionDao.js >> updateCapsEagleRuleDetails >updatedFeedback  >:<', updatedFeedback);
     try{
         if (!updatedFeedback || Object.keys(updatedFeedback).length === 0) {
-            console.log('UpdatedFeedback is empty.');
+            logger.info('UpdatedFeedback is empty.');
             return { success: false, message: 'No data to update' };
         }
 
@@ -131,13 +132,13 @@ const updateCapsEagleRuleDetails = async (updatedFeedback) => {
                 
                 try {
                     await db.query(sql, [decision, remark, claimId, ruleCode]);
-                    console.log(`Updated rule ${ruleCode} for claim ${claimId}: decision = ${decision}, remark = ${remark}`);
+                    logger.info(`Updated rule ${ruleCode} for claim ${claimId}: decision = ${decision}, remark = ${remark}`);
                 } catch (err) {
-                    console.error(`Failed to update rule ${ruleCode} for claim ${claimId}`, err);
+                    logger.error(`Failed to update rule ${ruleCode} for claim ${claimId}`, err);
                     return { success: false, message: `Error updating rule ${ruleCode}: ${err.message}` };
                 }
             } else {
-                console.log(`Skipped ${ruleKey} (missing claim_id or ruleCode)`);
+                logger.info(`Skipped ${ruleKey} (missing claim_id or ruleCode)`);
             }
         }
 

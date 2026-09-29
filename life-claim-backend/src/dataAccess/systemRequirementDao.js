@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require("../config/dbConfig");
 
 // Function to fetch requirement details based on portfolioType, typeOfClaim, policyStatus, and sumAssured
@@ -25,7 +26,7 @@ const getSystemRequirementFromDB = async (portfolioType, typeOfClaim, policyStat
 
     const [rows] = await db.query(query, [portfolioType, typeOfClaim, policyStatus, sumAssured]);
 
-    console.log(rows);
+    logger.info(rows);
     return rows.length > 0 ? rows : null;
   } catch (error) {
     throw new Error("Database error: " + error.message);

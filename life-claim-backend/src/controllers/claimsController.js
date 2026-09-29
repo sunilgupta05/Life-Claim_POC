@@ -34,7 +34,7 @@ exports.getClaimByUsername = async (req, res, next) => {
 exports.assignClaims = async(req,res,next)=>{
   try {
     const claims = req.body.claims
-    console.log('claimsController >> assignClaims request received');
+    logger.info('claimsController >> assignClaims request received');
   } catch (error) {
     logger.error(`Cannot GET users || MSG : ${error}`);
     next(error);

@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddDetails = require('../../models/add/CapsAddDetails');
 
 /** Whitelist — must match UI attribute dropdowns (Case Search + Case Assignment). */
@@ -38,10 +39,10 @@ const caseSearchData = async (attribute, value, limit, offset) => {
             offset: offset ? parseInt(offset) : undefined,
             order: [['case_id', 'DESC']]
         });
-        console.log(`caseSearchData.js >> found ${rows.length} cases out of ${count}`);
+        logger.info(`caseSearchData.js >> found ${rows.length} cases out of ${count}`);
         return { rows, count };
     } catch (error) {
-        console.error('DataAccess > capsAddCaseSearchDoa.js > caseSearchData, Error getting data from CapsAddDetails:', error);
+        logger.error('DataAccess > capsAddCaseSearchDoa.js > caseSearchData, Error getting data from CapsAddDetails:', error);
         throw error;
     }
 }

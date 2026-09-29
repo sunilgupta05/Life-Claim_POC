@@ -1,4 +1,5 @@
 // src/models/user.js
+const logger = require('../util/logger');
 const { DataTypes } = require('sequelize');
 const appConfig = require('../config/configService');
 const sequelize = require('../config/sequelize');
@@ -76,12 +77,12 @@ const User = sequelize.define('User', {
 /*
 User.beforeCreate((user,options)=>{
   try{
-    console.log("Called Before Create");
+    logger.info("Called Before Create");
     const hashedPassword =  bcrypt.hashSync(user.password,10);
     user.password = hashedPassword; 
   }
   catch(err){
-    console.error(err)
+    logger.error(err)
   }
   
  })
@@ -89,15 +90,15 @@ User.beforeCreate((user,options)=>{
  
 User.beforeUpdate((user,options)=>{
   try{
-    console.log('Before update hook called');
+    logger.info('Before update hook called');
     if(user.changed('password')){
-      console.log('Password field changed');
+      logger.info('Password field changed');
     const hashedPassword =  bcrypt.hashSync(user.password,10);
     user.password = hashedPassword; 
   }
   }
   catch(err){
-    console.error(err)
+    logger.error(err)
   }
   
  })

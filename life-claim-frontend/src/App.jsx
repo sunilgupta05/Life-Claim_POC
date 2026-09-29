@@ -53,6 +53,14 @@ const AdminAuditLog    = lazy(() => import('./pages/AdminAuditLog'))
 
 const AccessControl    = lazy(() => import('./pages/AccessControl'))
 
+const Branding         = lazy(() => import('./pages/Branding'))
+
+const FormFields       = lazy(() => import('./pages/FormFields'))
+
+const IntegrationHealth = lazy(() => import('./pages/IntegrationHealth'))
+
+const ITAdminSettings  = lazy(() => import('./pages/ITAdminSettings'))
+
 const CaseDetails      = lazy(() => import('./pages/CaseDetails'))
 
 const Profile          = lazy(() => import('./pages/Profile'))
@@ -284,6 +292,14 @@ export default function App() {
               <Route path="/superuser/workload" element={<ProtectedRoute {...moduleGuard('superuser-overview')}><AdminWorkloadList/></ProtectedRoute>} />
 
               <Route path="/superuser/access" element={<ProtectedRoute {...moduleGuard('access-control')}><AccessControl/></ProtectedRoute>} />
+
+              <Route path="/superuser/branding" element={<ProtectedRoute {...moduleGuard('branding')}><Branding/></ProtectedRoute>} />
+
+              <Route path="/superuser/forms" element={<ProtectedRoute {...moduleGuard('form-fields')}><FormFields/></ProtectedRoute>} />
+
+              <Route path="/superuser/health" element={<ProtectedRoute {...moduleGuard('integration-health')}><IntegrationHealth/></ProtectedRoute>} />
+
+              <Route path="/superuser/settings" element={<ProtectedRoute {...moduleGuard('it-admin')}><ITAdminSettings/></ProtectedRoute>} />
 
               <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>} />
 

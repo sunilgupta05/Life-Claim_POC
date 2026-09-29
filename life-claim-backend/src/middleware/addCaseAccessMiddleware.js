@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const CapsAddDetails = require('../models/add/CapsAddDetails');
 const { hasSuperUserAccess } = require('../util/superuserRoles');
 const { getUserContext } = require('./claimAccessMiddleware');
@@ -94,7 +95,7 @@ const authorizeAddCaseBodyAccess = async (req, res, next) => {
     req.addCaseIds = caseIds;
     return next();
   } catch (error) {
-    console.error('addCaseAccessMiddleware >> authorizeAddCaseBodyAccess error:', error.message || error);
+    logger.error('addCaseAccessMiddleware >> authorizeAddCaseBodyAccess error:', error.message || error);
     return res.status(500).json({ success: false, error: 'Failed to validate case access.' });
   }
 };

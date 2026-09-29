@@ -22,6 +22,7 @@
 // snapshot is empty and every lookup falls back to .env — i.e. behaviour is
 // identical to before this service existed.
 
+const logger = require('../util/logger');
 const dao = require('../dataAccess/appConfigDao');
 const configBus = require('./configBus');
 
@@ -62,11 +63,11 @@ async function reload() {
     ready = true;
     if (err && err.code === dao.TABLE_MISSING) {
       if (!warnedMissing) {
-        console.warn('[config] app_config table not migrated yet — using .env only (run npm run migrate).');
+        logger.warn('[config] app_config table not migrated yet — using .env only (run npm run migrate).');
         warnedMissing = true;
       }
     } else {
-      console.warn('[config] reload failed, keeping cached/.env values:', err?.message);
+      logger.warn('[config] reload failed, keeping cached/.env values:', err?.message);
     }
     return false;
   }

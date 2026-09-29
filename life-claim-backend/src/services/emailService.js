@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const express = require("express");
 const appConfig = require('../config/configService');
 const bodyParser = require("body-parser");
@@ -159,7 +160,7 @@ const saveAttachmentToFileSystem = async (attachment, inwardId, countOfAttachmen
 
   try {
     if (!alfresco_API_URL || !authHeader) {
-      console.error(
+      logger.error(
         'Email attachment upload skipped: set alfresco_API_URL and DMS_USER_ID / DMS_PASSWORD (or dev defaults).'
       );
       fs.unlinkSync(attachmentPath);
@@ -187,13 +188,13 @@ const saveAttachmentToFileSystem = async (attachment, inwardId, countOfAttachmen
       }
     );
 
-    //console.log(uploadResponse.data.entry);
+    //logger.info(uploadResponse.data.entry);
 
     AlfrescoIDtoUpdate  = uploadResponse.data.entry.id; // setting globally so can use for inserting attachment table in DB
   
     fs.unlinkSync(attachmentPath);
   } catch (uploadError) {
-    console.error("Error uploading to cloud storage:", uploadError);
+    logger.error("Error uploading to cloud storage:", uploadError);
   }
 
   return parentFolderID; // Return the parentFolderID
@@ -207,7 +208,7 @@ const readPreviousMails = async () => {
   // Set up connection timeout
   const connectionTimeout = setTimeout(() => {
     if (imap && imap.state !== 'authenticated' && imap.state !== 'ready') {
-      console.error("IMAP connection timeout - closing connection");
+      logger.error("IMAP connection timeout - closing connection");
       imap.end();
     }
   }, 60000); // 60 seconds total timeout
@@ -239,26 +240,26 @@ const readPreviousMails = async () => {
       });
 
       fetch.once("error", (err) => {
-        console.error("Fetch error:", err);
+        logger.error("Fetch error:", err);
       });
 
       fetch.once("end", () => {
-        console.log("Done fetching all messages!");
+        logger.info("Done fetching all messages!");
         imap.end();
       });
     } catch (err) {
-      console.error("Error reading previous mails:", err);
+      logger.error("Error reading previous mails:", err);
       imap.end();
     }
   });
 
   imap.once("error", (err) => {
     clearTimeout(connectionTimeout);
-    console.error("IMAP error:", err.message || err);
+    logger.error("IMAP error:", err.message || err);
     if (err.message && err.message.includes("Timed out while authenticating")) {
-      console.error("Authentication timeout - check email credentials and server availability");
+      logger.error("Authentication timeout - check email credentials and server availability");
     } else if (err.code === "ECONNRESET") {
-      console.log("Connection reset by server. Reconnecting...");
+      logger.info("Connection reset by server. Reconnecting...");
       setTimeout(() => {
         if (imap.state !== 'authenticated' && imap.state !== 'ready') {
           imap.connect();
@@ -269,14 +270,14 @@ const readPreviousMails = async () => {
 
   imap.once("end", () => {
     clearTimeout(connectionTimeout);
-    console.log("IMAP connection ended");
+    logger.info("IMAP connection ended");
   });
 
   try {
     imap.connect();
   } catch (err) {
     clearTimeout(connectionTimeout);
-    console.error("Failed to initiate IMAP connection:", err.message || err);
+    logger.error("Failed to initiate IMAP connection:", err.message || err);
   }
 };
 
@@ -297,7 +298,7 @@ const listenToInbox = (config, onNewMail) => {
     // Set up connection timeout
     connectionTimeout = setTimeout(() => {
       if (imap && imap.state !== 'authenticated' && imap.state !== 'ready') {
-        console.error("IMAP connection timeout - closing connection");
+        logger.error("IMAP connection timeout - closing connection");
         imap.end();
       }
     }, 60000); // 60 seconds total timeout
@@ -306,18 +307,18 @@ const listenToInbox = (config, onNewMail) => {
       clearTimeout(connectionTimeout);
       try {
         await openBox("INBOX", true);
-        console.log("Listening for new emails...");
+        logger.info("Listening for new emails...");
       } catch (err) {
-        console.error("Error opening inbox:", err);
+        logger.error("Error opening inbox:", err);
         imap.end();
         return;
       }
 
       imap.on("mail", (numNewMsgs) => {
-        console.log(`New mail arrived: ${numNewMsgs}`);
+        logger.info(`New mail arrived: ${numNewMsgs}`);
         imap.search(["UNSEEN"], (err, results) => {
           if (err) {
-            console.error("Search error:", err);
+            logger.error("Search error:", err);
             return;
           }
           if (!results || !results.length) return;
@@ -325,7 +326,7 @@ const listenToInbox = (config, onNewMail) => {
           const fetch = imap.fetch(results, { bodies: "" });
 
           fetch.on("message", (msg, seqno) => {
-            console.log(`Processing message #${seqno}`);
+            logger.info(`Processing message #${seqno}`);
             let buffer = "";
             let id;
             msg.once("attributes", (attrs) => {
@@ -345,11 +346,11 @@ const listenToInbox = (config, onNewMail) => {
           });
 
           fetch.once("error", (err) => {
-            console.error("Fetch error:", err);
+            logger.error("Fetch error:", err);
           });
 
           fetch.once("end", () => {
-            console.log("Done fetching all unseen messages.");
+            logger.info("Done fetching all unseen messages.");
           });
         });
       });
@@ -357,25 +358,25 @@ const listenToInbox = (config, onNewMail) => {
 
     imap.once("error", (err) => {
       clearTimeout(connectionTimeout);
-      console.error("IMAP error:", err.message || err);
+      logger.error("IMAP error:", err.message || err);
       if (err.message && err.message.includes("Timed out while authenticating")) {
-        console.error("Authentication timeout - check email credentials and server availability");
+        logger.error("Authentication timeout - check email credentials and server availability");
       }
       // Attempt to reconnect after 10 seconds
       clearTimeout(reconnectTimeout);
       reconnectTimeout = setTimeout(() => {
-        console.log("Attempting to reconnect to IMAP server...");
+        logger.info("Attempting to reconnect to IMAP server...");
         connectToIMAP();
       }, 10000);
     });
 
     imap.once("end", () => {
       clearTimeout(connectionTimeout);
-      console.log("IMAP connection ended.");
+      logger.info("IMAP connection ended.");
       // Attempt to reconnect after 10 seconds
       clearTimeout(reconnectTimeout);
       reconnectTimeout = setTimeout(() => {
-        console.log("Attempting to reconnect to IMAP server...");
+        logger.info("Attempting to reconnect to IMAP server...");
         connectToIMAP();
       }, 10000);
     });
@@ -384,9 +385,9 @@ const listenToInbox = (config, onNewMail) => {
       imap.connect();
     } catch (err) {
       clearTimeout(connectionTimeout);
-      console.error("Failed to initiate IMAP connection:", err.message || err);
+      logger.error("Failed to initiate IMAP connection:", err.message || err);
       reconnectTimeout = setTimeout(() => {
-        console.log("Attempting to reconnect to IMAP server...");
+        logger.info("Attempting to reconnect to IMAP server...");
         connectToIMAP();
       }, 10000);
     }
@@ -404,12 +405,12 @@ if (appConfig.get('EMAIL_ENABLED') === "true") {
       // Start listening to the inbox
       listenToInbox(imapConfig, handleNewMail);
     } catch (error) {
-      console.error("Failed to initialize email service:", error.message || error);
-      console.log("Email service will not be available. Check your email configuration.");
+      logger.error("Failed to initialize email service:", error.message || error);
+      logger.info("Email service will not be available. Check your email configuration.");
     }
   } else {
-    console.warn("Email service not initialized: Missing email configuration in environment variables");
-    console.warn("Required: EMAIL_ID, EMAIL_PASS, EMAIL_HOST, EMAIL_PORT");
+    logger.warn("Email service not initialized: Missing email configuration in environment variables");
+    logger.warn("Required: EMAIL_ID, EMAIL_PASS, EMAIL_HOST, EMAIL_PORT");
   }
 }
 

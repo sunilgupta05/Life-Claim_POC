@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig');
 const { hasSuperUserAccess } = require('../util/superuserRoles');
 const { extractKeycloakRoles, extractKeycloakUsername } = require('../util/keycloakRoles');
@@ -107,7 +108,7 @@ const authorizeClaimAccess = (resolveClaimNumber = getClaimNumberFromRequest) =>
     req.claimNumber = claimNumber;
     return next();
   } catch (error) {
-    console.error('claimAccessMiddleware >> authorizeClaimAccess error:', error.message || error);
+    logger.error('claimAccessMiddleware >> authorizeClaimAccess error:', error.message || error);
     return res.status(500).json({ message: 'Failed to validate claim access.' });
   }
 };
@@ -142,7 +143,7 @@ const authorizePreviewNodeAccess = async (req, res, next) => {
     req.claimNumber = claimNumber;
     return next();
   } catch (error) {
-    console.error('claimAccessMiddleware >> authorizePreviewNodeAccess error:', error.message || error);
+    logger.error('claimAccessMiddleware >> authorizePreviewNodeAccess error:', error.message || error);
     return res.status(500).json({ message: 'Failed to validate document access.' });
   }
 };
@@ -182,7 +183,7 @@ const authorizePoolAssignAccess = async (req, res, next) => {
     req.claimNumber = claimNumber;
     return next();
   } catch (error) {
-    console.error('claimAccessMiddleware >> authorizePoolAssignAccess error:', error.message || error);
+    logger.error('claimAccessMiddleware >> authorizePoolAssignAccess error:', error.message || error);
     return res.status(500).json({ message: 'Failed to validate pool assignment access.' });
   }
 };
@@ -217,7 +218,7 @@ const authorizeAssignClaimsBodyAccess = async (req, res, next) => {
 
     return next();
   } catch (error) {
-    console.error('claimAccessMiddleware >> authorizeAssignClaimsBodyAccess error:', error.message || error);
+    logger.error('claimAccessMiddleware >> authorizeAssignClaimsBodyAccess error:', error.message || error);
     return res.status(500).json({ message: 'Failed to validate claim assignment access.' });
   }
 };
@@ -247,7 +248,7 @@ const authorizePolicyOrClaimBodyAccess = async (req, res, next) => {
     }
     return next();
   } catch (error) {
-    console.error('claimAccessMiddleware >> authorizePolicyOrClaimBodyAccess error:', error.message || error);
+    logger.error('claimAccessMiddleware >> authorizePolicyOrClaimBodyAccess error:', error.message || error);
     return res.status(500).json({ message: 'Failed to validate policy/claim access.' });
   }
 };
@@ -275,7 +276,7 @@ const authorizeHistorySearchAccess = async (req, res, next) => {
     }
     return next();
   } catch (error) {
-    console.error('claimAccessMiddleware >> authorizeHistorySearchAccess error:', error.message || error);
+    logger.error('claimAccessMiddleware >> authorizeHistorySearchAccess error:', error.message || error);
     return res.status(500).json({ message: 'Failed to validate history search access.' });
   }
 };

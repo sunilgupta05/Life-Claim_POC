@@ -1,0 +1,38 @@
+# Optional Vault overlay (roadmap 4.5). Adds a HashiCorp Vault (dev mode) and
+# switches the backend/worker to the vault secrets provider, so the full
+# secrets-from-vault path is demonstrable/testable without a real KMS.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.vault.yml up -d --build
+#   ./deploy/vault/seed.sh                     # write secrets into vault
+#
+# DEV MODE IS NOT FOR PRODUCTION (root token, in-memory). For prod, run Vault
+# properly and set VAULT_ADDR/VAULT_TOKEN (or an agent) — see docs/SECRETS.md.
+services:
+  vault:
+    image: hashicorp/vault:1.16
+    restart: unless-stopped
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    networks: [internal]
+
+  backend:
+    environment:
+      SECRETS_PROVIDER: vault
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+      VAULT_SECRET_PATH: life-claim
+    depends_on:
+      - vault
+
+  worker:
+    environment:
+      SECRETS_PROVIDER: vault
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+      VAULT_SECRET_PATH: life-claim
+    depends_on:
+      - vault

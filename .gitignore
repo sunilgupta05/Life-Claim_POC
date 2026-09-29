@@ -54,3 +54,6 @@ life-claim-backend/keys/login_private.pem
 *.pem
 *.key
 *.cert
+
+# Uploaded branding logos (roadmap 2.1)
+life-claim-backend/uploads/

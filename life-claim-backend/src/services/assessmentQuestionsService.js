@@ -1,8 +1,9 @@
+const logger = require('../util/logger');
 const db = require("../config/dbConfig");
 
 exports.getassessmentQuestions = async (data) => {
   try {
-    console.log("hi,in service", data);
+    logger.info("hi,in service", data);
     let { claimType, productCode, portfolio, typeOfClaim, riderType } = data;
     let breQuestionId = "";
     let arr = [];
@@ -97,7 +98,7 @@ exports.getassessmentQuestions = async (data) => {
      breQuestionId = "9A,10,11,12,13,14,15,16,Covid1,Covid2";
      arr.push(...breQuestionId.split(","));
 
-    console.log(arr);
+    logger.info(arr);
 
          // Fetch data based on arr
          const query = `
@@ -107,10 +108,10 @@ exports.getassessmentQuestions = async (data) => {
      `;
      
      const [rows] = await db.query(query, arr);
-     console.log(rows);
+     logger.info(rows);
 
     return rows;
   } catch (error) {
-    console.log(error);
+    logger.info(error);
   }
 };

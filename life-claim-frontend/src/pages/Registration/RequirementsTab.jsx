@@ -5,6 +5,8 @@ import { validateRequirements, showValidationToast } from '../../util/registrati
 import { REGISTRATION_REQUIREMENTS } from '../../config/registrationCatalog'
 import { buildRequirementTableRows } from '../../util/buildRegistrationPayload'
 import { statusPillStyle, fieldInputStyle, alertBannerStyle, metricTileStyle, metricCardTokens, toneControlStyle } from '../../ui/pageTokens'
+import SchemaForm from '../../components/forms/SchemaForm'
+import { useFormFields } from '../../hooks/useFormFields'
 
 const REQ_DOCS = REGISTRATION_REQUIREMENTS
 
@@ -13,6 +15,10 @@ export default function RequirementsTab({ data, update, userRole, onComplete }) 
   const toast = useToast()
   const [subTab, setSubTab] = useState('Requirements')
   const showCommTab = userRole && userRole !== 'Pre Assessor'
+
+  // Schema-driven Communication sub-form (roadmap 2.2/2.3): configurable fields.
+  const commForm = useFormFields('registration.communication')
+  const onFieldChange = (name, val) => update({ [name]: val })
 
   const reqStatus = data.reqStatus || {}
   const reqRemarks = data.reqRemarks || {}
@@ -247,114 +253,9 @@ export default function RequirementsTab({ data, update, userRole, onComplete }) 
 
       {subTab === 'Communication' && showCommTab && (
         <div style={{ padding: '4px 0 16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {[
-              {
-                key: 'commEmailSent',
-                label: 'Email Sent to Claimant',
-                type: 'select',
-                opts: ['Yes', 'No', 'Pending'] },
-              { key: 'commEmailDate', label: 'Email Sent Date', type: 'date' },
-              {
-                key: 'commSmsSent',
-                label: 'SMS Sent to Claimant',
-                type: 'select',
-                opts: ['Yes', 'No', 'Pending'] },
-              { key: 'commSmsDate', label: 'SMS Sent Date', type: 'date' },
-              {
-                key: 'commLetterSent',
-                label: 'Letter Dispatched',
-                type: 'select',
-                opts: ['Yes', 'No', 'Pending'] },
-              { key: 'commLetterDate', label: 'Letter Dispatch Date', type: 'date' },
-              {
-                key: 'commWhatsapp',
-                label: 'WhatsApp Notified',
-                type: 'select',
-                opts: ['Yes', 'No', 'NA'] },
-            ].map((f) => (
-              <div key={f.key}>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: T.textSecondary,
-                    marginBottom: '5px' }}
-                >
-                  {f.label}
-                </label>
-                {f.type === 'select' ? (
-                  <select
-                    value={data[f.key] || ''}
-                    onChange={(e) => update({ [f.key]: e.target.value })}
-                    style={{
-                      width: '100%',
-                      height: '38px',
-                      padding: '0 10px',
-                      border: `1.5px solid ${T.border}`,
-                      borderRadius: '7px',
-                      background: T.inputBg,
-                      fontSize: '13px',
-                      fontFamily: 'Inter,sans-serif',
-                      outline: 'none',
-                      cursor: 'pointer' }}
-                  >
-                    <option value="">-- Select --</option>
-                    {f.opts.map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={f.type}
-                    value={data[f.key] || ''}
-                    onChange={(e) => update({ [f.key]: e.target.value })}
-                    style={{
-                      width: '100%',
-                      height: '38px',
-                      padding: '0 10px',
-                      border: `1.5px solid ${T.border}`,
-                      borderRadius: '7px',
-                      background: T.inputBgReadonly,
-                      fontSize: '13px',
-                      fontFamily: 'Inter,sans-serif',
-                      outline: 'none',
-                      boxSizing: 'border-box' }}
-                  />
-                )}
-              </div>
-            ))}
-            <div style={{ gridColumn: '1/-1' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#334155',
-                  marginBottom: '5px' }}
-              >
-                Communication Remarks
-              </label>
-              <textarea
-                value={data.commRemarks || ''}
-                onChange={(e) => update({ commRemarks: e.target.value })}
-                rows={3}
-                placeholder="Enter communication details..."
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  border: `1.5px solid ${T.border}`,
-                  borderRadius: '7px',
-                  background: T.inputBg,
-                  fontSize: '13px',
-                  fontFamily: 'Inter,sans-serif',
-                  outline: 'none',
-                  resize: 'vertical',
-                  boxSizing: 'border-box' }}
-              />
-            </div>
-          </div>
+          {/* Schema-driven, per-deployment-configurable (roadmap 2.2/2.3). Same
+              data keys → save behaviour unchanged; hidden/required from config. */}
+          <SchemaForm schema={commForm.fields} values={data} onChange={onFieldChange} columns={2} />
         </div>
       )}
 

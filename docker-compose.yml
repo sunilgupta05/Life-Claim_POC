@@ -1,0 +1,135 @@
+# Life Claims — single-host deployment (roadmap 4.2).
+# Brings up the app + its data-plane dependencies for an on-prem VM. TLS is
+# terminated at the frontend nginx (add certs there or front with a reverse proxy).
+# The Drools rules engine is built + run here (see the `rules` service). Keycloak,
+# the Transaction API, Alfresco and the WhatsApp gateway remain external and are
+# configured via env (they are not started here).
+#
+#   cp .env.example .env                 # compose vars: DB/RabbitMQ passwords, ports
+#   # app config (integration URLs, secrets) stays in life-claim-backend/.env
+#   docker compose up -d --build
+#   docker compose exec backend npm run migrate   # apply DB schema (first run)
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-claims_poc}
+      MYSQL_USER: ${DB_USER:-claims}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-change-me-root}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_ROOT_PASSWORD:-change-me-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbit-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1"]
+    volumes:
+      - redis-data:/data
+    networks: [internal]
+
+  # Drools rules engine (Java/Spring Boot) — ADD accidental-death exclusion rules.
+  # Backend-only dependency; called by the API when RULES_ENGINE_ENABLED=true.
+  rules:
+    build: ./life-claim-rules
+    restart: unless-stopped
+    environment:
+      # Must match the backend's RULES_ENGINE_API_KEY (both read the same var).
+      RULES_ENGINE_API_KEY: ${RULES_ENGINE_API_KEY:-dev-only-change-me}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8095/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks: [internal]
+
+  backend:
+    build: ./life-claim-backend
+    restart: unless-stopped
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      rules: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      USE_HTTPS: "false"
+      HOST: 0.0.0.0
+      PORT: "3010"
+      DB_HOST: mysql
+      DB_DATABASE: ${DB_DATABASE:-claims_poc}
+      DB_USER: ${DB_USER:-claims}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      REDIS_URL: redis://redis:6379
+      # Reach the rules engine over the internal docker network.
+      RULES_ENGINE_ENABLED: "true"
+      RULES_ENGINE_URL: http://rules:8095
+      RULES_ENGINE_API_KEY: ${RULES_ENGINE_API_KEY:-dev-only-change-me}
+      # Other integration URLs + secrets come from your .env / secrets provider (4.5).
+    env_file:
+      - ./life-claim-backend/.env
+    networks: [internal]
+
+  # Notification worker — same image, different entrypoint (roadmap: required for
+  # queued notifications). Scales independently of the API.
+  worker:
+    build: ./life-claim-backend
+    restart: unless-stopped
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    command: ["node", "src/workers/notificationWorker.js"]
+    environment:
+      NODE_ENV: production
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      DB_HOST: mysql
+      DB_DATABASE: ${DB_DATABASE:-claims_poc}
+      DB_USER: ${DB_USER:-claims}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+    env_file:
+      - ./life-claim-backend/.env
+    networks: [internal]
+
+  frontend:
+    build: ./life-claim-frontend
+    restart: unless-stopped
+    depends_on: [backend]
+    ports:
+      - "${FRONTEND_PORT:-8088}:80"
+    networks: [internal]
+
+volumes:
+  mysql-data:
+  rabbit-data:
+  redis-data:
+
+networks:
+  internal:
+    driver: bridge

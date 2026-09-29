@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig');
 
 const getTransactionApiDBDetails = async (policyNumber, txnDate) => {
@@ -9,10 +10,10 @@ const getTransactionApiDBDetails = async (policyNumber, txnDate) => {
             params.push(txnDate);
         }
         const queryResult = await db.query(sql, params);
-        console.log(' dataAccess >> transactionApiDetails.js >> getTransactionApiDetails >> queryResult :>', queryResult);
+        logger.info(' dataAccess >> transactionApiDetails.js >> getTransactionApiDetails >> queryResult :>', queryResult);
         return queryResult;
     } catch (error) {
-        console.log(' dataAccess >> transactionApiDetails.js >> getTransactionApiDetails >> error :>', error);
+        logger.info(' dataAccess >> transactionApiDetails.js >> getTransactionApiDetails >> error :>', error);
         throw new Error('Database error: ' + error.message);
     }
 }
@@ -31,14 +32,14 @@ function extractTxnSaveRecords(transactionApiDetails = {}) {
 const saveTransactionApiDetails = async (transactionApiDetails) => {
     let connection;
     try {
-        console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> transactionApiDetails :>', transactionApiDetails);
+        logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> transactionApiDetails :>', transactionApiDetails);
 
         // Get a connection from the pool for transaction
         connection = await db.getConnection();
         
         // Start transaction
         await connection.beginTransaction();
-        console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> Transaction started');
+        logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> Transaction started');
 
         const defaultPolicy = transactionApiDetails.policyNumber || transactionApiDetails.policyId;
         const records = extractTxnSaveRecords(transactionApiDetails).filter(
@@ -93,9 +94,9 @@ const saveTransactionApiDetails = async (transactionApiDetails) => {
             }
 
             // Validate required fields
-            //console.log('txnpolicyNumber : ', txnpolicyNumber);
+            //logger.info('txnpolicyNumber : ', txnpolicyNumber);
             if (!txnpolicyNumber || !formattedTxnDate || !txnCode || txnAmount === undefined || !txnStatus || !txnDescription) {
-                console.log('records : ', records, '\n transactionApiDetails : ', transactionApiDetails);
+                logger.info('records : ', records, '\n transactionApiDetails : ', transactionApiDetails);
                 throw new Error(`Missing required fields for record: ${JSON.stringify(record)}`);
             }
 
@@ -110,7 +111,7 @@ const saveTransactionApiDetails = async (transactionApiDetails) => {
                    AND txnDescription = ?`,
                 [txnpolicyNumber, formattedTxnDate, txnCode, txnAmount, txnStatus, txnDescription]
             );
-            console.log('dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> existing :>', existing);
+            logger.info('dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> existing :>', existing);
             let queryResult;
 
             if (existing && existing.length > 0) {
@@ -126,14 +127,14 @@ const saveTransactionApiDetails = async (transactionApiDetails) => {
                        AND txnDescription = ?`,
                     [txnRemark, txnAction, txnpolicyNumber, formattedTxnDate, txnAmount, txnCode, txnStatus, txnDescription]
                 );
-                console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> updateResult :>', queryResult);
+                logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> updateResult :>', queryResult);
             } else {
                 // 3. Record does not exist -> insert new row
                 queryResult = await connection.query(
                     'INSERT INTO transactionApiDetails (txnpolicyNumber, txnDate, txnCode, txnAmount, txnStatus, txnDescription, txnRemark, txnAction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                     [txnpolicyNumber, formattedTxnDate, txnCode, txnAmount, txnStatus, txnDescription, txnRemark, txnAction]
                 );
-                console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> insertResult :>', queryResult);
+                logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> insertResult :>', queryResult);
             }
 
             queryResults.push(queryResult);
@@ -141,16 +142,16 @@ const saveTransactionApiDetails = async (transactionApiDetails) => {
 
         // If all records processed successfully, commit the transaction
         await connection.commit();
-        console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> Transaction committed successfully');
+        logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> Transaction committed successfully');
         
         return queryResults.length === 1 ? queryResults[0] : queryResults;
     } catch (error) {
         // Rollback transaction on any error
         if (connection) {
             await connection.rollback();
-            console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> Transaction rolled back due to error');
+            logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> Transaction rolled back due to error');
         }
-        console.log(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> error :>', error);
+        logger.info(' dataAccess >> transactionApiDetails.js >> saveTransactionApiDetails >> error :>', error);
         throw new Error('Database error: ' + error.message);
     } finally {
         // Release the connection back to the pool

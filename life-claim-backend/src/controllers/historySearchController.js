@@ -1,9 +1,10 @@
+const logger = require('../util/logger');
 const historySearchService = require('../services/historySearchService');
 
 const getHistorySearch = async (req, res) => {
   try {
     const { policyNumber, claimNumber } = req.body;
-    console.log('Received policy number:', policyNumber, 'Received claim number:', claimNumber);
+    logger.info('Received policy number:', policyNumber, 'Received claim number:', claimNumber);
 
     if (!policyNumber && !claimNumber) {
       return res.status(400).json({ message: 'Either policy number or claim number is required' });
@@ -14,10 +15,10 @@ const getHistorySearch = async (req, res) => {
     if (!policy) {
       return res.status(404).json({ message: 'Policy or claim not found' });
     }
-    // console.log(policy)
+    // logger.info(policy)
     res.status(200).json(policy);
   } catch (error) {
-    // console.error('Error searching for policy or claim:', error);
+    // logger.error('Error searching for policy or claim:', error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };

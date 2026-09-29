@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 // const pool = require('../config/dbConfig');
 // const ContactDetails = require('../models/ContactDetail');
 
@@ -6,9 +7,9 @@
 //     async createContactDetails(contactDetails, transaction) {
 //         try {
 //             const transformedData = this.mapDTOToSequelize(contactDetails);
-//             console.log("Transformed  :   ", transformedData);
+//             logger.info("Transformed  :   ", transformedData);
 //             const createContactResult = await ContactDetails.create(transformedData, { transaction });
-//             console.log("Output:  ", this.mapSequelizeToDTO(createContactResult));
+//             logger.info("Output:  ", this.mapSequelizeToDTO(createContactResult));
 //             return this.mapSequelizeToDTO(createContactResult);
 //         }
 //         catch (err) {

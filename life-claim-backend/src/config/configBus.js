@@ -12,6 +12,7 @@
 // exactly as before: local hot-reload on the writing instance + TTL refresh on
 // the others. This reuses the same REDIS_URL already used for the session store.
 
+const logger = require('../util/logger');
 const crypto = require('crypto');
 
 const CHANNEL = 'lifeclaim:config:invalidate';
@@ -45,7 +46,7 @@ async function init(redisUrl, onInvalidate) {
   try {
     ({ createClient } = require('redis'));
   } catch (err) {
-    console.warn(
+    logger.warn(
       '[config-bus] redis module unavailable; cross-instance config invalidation disabled:',
       err?.message
     );
@@ -55,8 +56,8 @@ async function init(redisUrl, onInvalidate) {
   try {
     pub = createClient({ url: redisUrl });
     sub = pub.duplicate();
-    pub.on('error', (e) => console.error('[config-bus] publisher error:', e.message));
-    sub.on('error', (e) => console.error('[config-bus] subscriber error:', e.message));
+    pub.on('error', (e) => logger.error('[config-bus] publisher error:', e.message));
+    sub.on('error', (e) => logger.error('[config-bus] subscriber error:', e.message));
     await pub.connect();
     await sub.connect();
     await sub.subscribe(CHANNEL, (raw) => {
@@ -72,10 +73,10 @@ async function init(redisUrl, onInvalidate) {
       if (typeof onInvalidate === 'function') onInvalidate(key);
     });
     enabled = true;
-    console.log('[config-bus] cross-instance config invalidation enabled via Redis.');
+    logger.info('[config-bus] cross-instance config invalidation enabled via Redis.');
     return true;
   } catch (err) {
-    console.error(
+    logger.error(
       '[config-bus] failed to initialize; falling back to TTL-only refresh:',
       err?.message
     );
@@ -92,7 +93,7 @@ function publish(key) {
   if (!enabled || !pub) return;
   const payload = JSON.stringify({ sender: INSTANCE_ID, key: key ?? null });
   pub.publish(CHANNEL, payload).catch((e) =>
-    console.error('[config-bus] publish failed:', e.message)
+    logger.error('[config-bus] publish failed:', e.message)
   );
 }
 

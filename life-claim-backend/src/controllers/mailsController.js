@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const con = require('../config/dbConfig');
 
 exports.getAllMails = async (req, res) => {
@@ -29,7 +30,7 @@ exports.getAllMails = async (req, res) => {
             res.status(404).send({ msg: 'No record found!' });
         }
     } catch (err) {
-        console.error('Error executing query', err);
+        logger.error('Error executing query', err);
         res.status(500).json({ message: 'Internal server error' });
     }
 };
@@ -40,7 +41,7 @@ exports.getMailsCount = async (req, res) => {
         const [result, fields] = await con.query(query);
         res.status(200).send(result[0]);
     } catch (err) {
-        console.error('Error executing query', err);
+        logger.error('Error executing query', err);
         res.status(500).json({ message: 'Internal server error' });
     }
 };
@@ -55,7 +56,7 @@ exports.getMailById = async (req, res) => {
             res.status(200).send(results[0]);
         }
     } catch (err) {
-        console.error('Error executing query', err);
+        logger.error('Error executing query', err);
         res.status(500).json({ message: 'Internal server error' });
     }
 };

@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const claimSearchDao = require('../dataAccess/claimSearchDao');
 const { camelToSnakeCase, snakeToCamelCase } = require("../util/convertCase");
 
@@ -6,7 +7,7 @@ const getClaimSearchService = async (claimNumber) => {
     const claim = await claimSearchDao.claimSearchInDB(claimNumber);
     return claim;
   } catch (error) {
-    //console.error('DAO Error:', error.message); // Log specific DAO error
+    //logger.error('DAO Error:', error.message); // Log specific DAO error
     throw new Error('Error in service while fetching claim no');
   }
 };
@@ -17,7 +18,7 @@ const updateAssessorFields= async (assessor,claimNumber, username) => {
     const data = await claimSearchDao.editAssessor(assessorSnake, claimNumber, username);
     return data;
   } catch (error) {
-    console.error('DAO Error:', error.message);
+    logger.error('DAO Error:', error.message);
     throw new Error('Error in service');
   }
 };
@@ -28,7 +29,7 @@ const updateVerifierFields= async (verifier,claimNumber,username) => {
     const data = await claimSearchDao.editVerifier(verifierSnake,claimNumber, username);
     return data;
   } catch (error) {
-    console.error('DAO Error:', error.message);
+    logger.error('DAO Error:', error.message);
     throw new Error('Error in service');
   }
 };

@@ -1,9 +1,10 @@
+const logger = require('../util/logger');
 const DocumentList = require('../models/documentList')
 
 
 const getDocumentList = async() => {
      const doc = await DocumentList.findAll();
-     console.log('documentListDOA.js >> getDocumentList :>>', doc);
+     logger.info('documentListDOA.js >> getDocumentList :>>', doc);
      return doc;
 }
 

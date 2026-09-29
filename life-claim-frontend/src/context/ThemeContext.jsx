@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { PAGE_TOKENS } from '../ui/pageTokens'
+import { COMPANY } from '../config/companyBrand'
+import { onBrandChange } from '../config/brandTheme'
 
 const STORAGE_KEY = 'life-claims-theme'
 
@@ -22,6 +24,9 @@ function applyThemeToDocument(theme) {
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(readStoredTheme)
+  // Bumped when the org's brand colours change (2.1), so `tokens` recomputes and
+  // JS-token inline styles (T.primary/T.accent) pick up the new brand hue.
+  const [brandVersion, setBrandVersion] = useState(0)
 
   useEffect(() => {
     applyThemeToDocument(theme)
@@ -32,17 +37,25 @@ export function ThemeProvider({ children }) {
     }
   }, [theme])
 
+  useEffect(() => onBrandChange(() => setBrandVersion((v) => v + 1)), [])
+
   const setTheme = (mode) => setThemeState(mode === 'dark' ? 'dark' : 'light')
 
   const value = useMemo(
     () => ({
       theme,
       isDark: theme === 'dark',
-      tokens: PAGE_TOKENS[theme],
+      // Overlay the configured brand colours (roadmap 2.1) onto the base tokens.
+      tokens: {
+        ...PAGE_TOKENS[theme],
+        ...(COMPANY.colors?.primary ? { primary: COMPANY.colors.primary } : {}),
+        ...(COMPANY.colors?.accent ? { accent: COMPANY.colors.accent } : {}),
+      },
       setTheme,
       toggleTheme: () => setThemeState((t) => (t === 'dark' ? 'light' : 'dark')),
     }),
-    [theme],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [theme, brandVersion],
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

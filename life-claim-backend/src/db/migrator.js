@@ -18,6 +18,7 @@
 //   - MySQL DDL is not transactional, so author UP/DOWN idempotently
 //     (CREATE TABLE IF NOT EXISTS, guarded ALTERs, etc.).
 
+const logger = require('../util/logger');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -107,7 +108,7 @@ class Migrator {
   constructor(overrides = {}) {
     this.config = loadConfig(overrides);
     this.dialect = getDialect(this.config.dialect, this.config.connection);
-    this.log = overrides.log || ((msg) => console.log(msg));
+    this.log = overrides.log || ((msg) => logger.info(msg));
   }
 
   // Connect only. The tracking table is created lazily, right before the first

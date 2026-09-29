@@ -4,6 +4,7 @@
 // view and edit runtime business settings; saves hot-reload immediately.
 // (A dedicated IT Admin UI is roadmap 3.5 — this is the backend it will use.)
 
+const logger = require('../util/logger');
 const configService = require('../config/configService');
 
 const VALID_TYPES = ['string', 'number', 'boolean', 'json'];
@@ -13,7 +14,7 @@ const listConfig = async (req, res) => {
   try {
     res.json({ status: configService.status(), items: configService.listForAdmin() });
   } catch (err) {
-    console.error('[config] list error:', err?.message);
+    logger.error('[config] list error:', err?.message);
     res.status(500).json({ message: 'Failed to load configuration' });
   }
 };
@@ -45,7 +46,7 @@ const upsertConfig = async (req, res) => {
     });
     res.json({ message: 'Saved', key, applied: true });
   } catch (err) {
-    console.error('[config] upsert error:', err?.message);
+    logger.error('[config] upsert error:', err?.message);
     const missing = err?.code === 'APP_CONFIG_TABLE_MISSING';
     res.status(missing ? 409 : 500).json({
       message: missing
@@ -63,7 +64,7 @@ const deleteConfig = async (req, res) => {
     await configService.remove(key);
     res.json({ message: 'Deleted', key });
   } catch (err) {
-    console.error('[config] delete error:', err?.message);
+    logger.error('[config] delete error:', err?.message);
     res.status(500).json({ message: 'Failed to delete configuration' });
   }
 };

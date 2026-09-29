@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 //const CapsAddDetails = require('../add/CapsAddDetails');
 const CapsAddDetails = require('../../models/add/CapsAddDetails');
 const CapsAddDecision = require('../../models/add/CapsAddDecision');
@@ -11,7 +12,7 @@ const { assertCasePendingApprover } = require('../../util/capsAddCaseGuards');
 // to insert data into the table
 const insertCapsAddDetails = async ({username, data}) => {
     try {
-        console.log('DataAccess > capsAddDetailsDao.js : insertCapsAddDetails (Saving to RAW)', username, data);
+        logger.info('DataAccess > capsAddDetailsDao.js : insertCapsAddDetails (Saving to RAW)', username, data);
        
         if (!Array.isArray(data)) {
             throw new Error('Data must be an array of objects');
@@ -49,12 +50,12 @@ const insertCapsAddDetails = async ({username, data}) => {
         // 🚀 TRIGGER BACKGROUND ENRICHMENT AUTOMATICALLY
         // We don't 'await' this so the user gets a fast response while the API calls happen in background
         dataEnrichmentService.processRawDataBatch().catch(err => {
-            console.error('DataAccess >> Enrichment trigger error:', err);
+            logger.error('DataAccess >> Enrichment trigger error:', err);
         });
 
         return addedRawData;
     } catch (err) {
-        console.error('DataAccess > capsAddDetailsDao.js > insertCapsAddDetails, Error inserting into Raw Table:', err);
+        logger.error('DataAccess > capsAddDetailsDao.js > insertCapsAddDetails, Error inserting into Raw Table:', err);
         throw err;
     }
 }
@@ -102,16 +103,16 @@ function formatDateString(dateStr) {
 // to get data from the table [NOT INUSED CURRENTLY]
 const getCapsAddDetails = async (attribute, value) => {
     try {
-        console.log('capsAddDetailsDoa.js >> getCapsAddDetails: ', attribute, value);
+        logger.info('capsAddDetailsDoa.js >> getCapsAddDetails: ', attribute, value);
         const capsAddDetails = await CapsAddDetails.findAll({
             where: {
                 [attribute]: value,
                 }
         });
-        console.log('capsAddDetailsDoa.js >> getCapsAddDetails: ', capsAddDetails);
+        logger.info('capsAddDetailsDoa.js >> getCapsAddDetails: ', capsAddDetails);
         return capsAddDetails;
     } catch (err) {
-        console.error('DataAccess > capsAddDetailsDao.js > getCapsAddDetails, Error getting data from CapsAddDetails:', err);
+        logger.error('DataAccess > capsAddDetailsDao.js > getCapsAddDetails, Error getting data from CapsAddDetails:', err);
         throw err;
     }
 }
@@ -120,7 +121,7 @@ const getCapsAddDetails = async (attribute, value) => {
 // Complex query to get case details with findings and decisions
 const getCapsAddDetailsByDecision = async (caseType, attribute, value, limit, offset) => {
     try {
-        console.log('capsAddDetailsDoa.js >> getCapsAddDetailsWithFindings: ', caseType, attribute, value, limit, offset);
+        logger.info('capsAddDetailsDoa.js >> getCapsAddDetailsWithFindings: ', caseType, attribute, value, limit, offset);
 
         if (!caseType || !attribute || value == null || String(value).trim() === '') {
             throw new Error('caseType, attribute, and value are required');
@@ -200,14 +201,14 @@ const getCapsAddDetailsByDecision = async (caseType, attribute, value, limit, of
 
         return { data: result, totalCount };
     } catch (err) {
-        console.error('DataAccess > capsAddDetailsDao.js > getCapsAddDetailsWithFindings, Error getting data:', err);
+        logger.error('DataAccess > capsAddDetailsDao.js > getCapsAddDetailsWithFindings, Error getting data:', err);
         throw err;
     }
 }
  
  
 const updateCapsAddDetailsCaseStatus = async (caseIds, caseStatus, username) => {
-    console.log('capsAddDetailsDoa.js >> updateCapsAddDetailsCaseStatus: ', caseIds, caseStatus);
+    logger.info('capsAddDetailsDoa.js >> updateCapsAddDetailsCaseStatus: ', caseIds, caseStatus);
 
     const ids = (Array.isArray(caseIds) ? caseIds : [caseIds])
         .map((id) => Number(id))
@@ -247,7 +248,7 @@ const updateCapsAddDetailsCaseStatus = async (caseIds, caseStatus, username) => 
 
         return results;
     } catch (err) {
-        console.error('DataAccess > capsAddDetailsDao.js > updateCapsAddDetailsCaseStatus, Error updating data:', err);
+        logger.error('DataAccess > capsAddDetailsDao.js > updateCapsAddDetailsCaseStatus, Error updating data:', err);
         throw err;
     }
 }
@@ -268,7 +269,7 @@ const getCapsAddDetailsPolicyNumberUsername = async () => {
         return { responsePolicyNumber, responseUsername };
        // return responsePolicyNumber;
     }catch(err){
-        console.error('DataAccess > capsAddDetailsDao.js > getCapsAddDetailsLpolicyNumber, Error getting data:', err);
+        logger.error('DataAccess > capsAddDetailsDao.js > getCapsAddDetailsLpolicyNumber, Error getting data:', err);
         throw err;
     }
    

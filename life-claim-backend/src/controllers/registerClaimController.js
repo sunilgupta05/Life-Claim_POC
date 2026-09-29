@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const IntimationDetail = require("../models/IntimationDetail");
 const appConfig = require('../config/configService');
 const TrapScore = require("../models/TrapScore")
@@ -117,14 +118,14 @@ function debugLog(label, data) {
       `[${new Date().toISOString()}] ${label} = ${JSON.stringify(data)}\n`
     );
   } catch (e) {
-    console.error("debugLog write failed:", e.message);
+    logger.error("debugLog write failed:", e.message);
   }
 }
 
 const registerClaim = async (req, res) => {
   const transaction = await sequelize.transaction(); // Start transaction
-  console.log('registerClaimController >> registerClaim request received');
-  console.log('[DEBUG] req.body.lifeAssuredDetails RAW =', JSON.stringify(req.body.lifeAssuredDetails));
+  logger.info('registerClaimController >> registerClaim request received');
+  logger.info('[DEBUG] req.body.lifeAssuredDetails RAW =', JSON.stringify(req.body.lifeAssuredDetails));
   debugLog('lifeAssuredDetails RAW', req.body.lifeAssuredDetails);
   debugLog('laCity/laState/laPincode on req.body', {
     laCity: req.body.laCity,
@@ -210,13 +211,13 @@ const registerClaim = async (req, res) => {
     unregisteredPolicies = asArray(unregisteredPolicies);
     riderDetailsTable1 = asArray(riderDetailsTable1);
 
-    // console.log(smsData)
-    // console.log(telecalling)
-    // console.log(caseTrigger)
-    // console.log(systemRemarks)
-    // console.log(fraudFlags)
-    // console.log(priorityFlag)
-    // console.log(unregisteredPolicies)
+    // logger.info(smsData)
+    // logger.info(telecalling)
+    // logger.info(caseTrigger)
+    // logger.info(systemRemarks)
+    // logger.info(fraudFlags)
+    // logger.info(priorityFlag)
+    // logger.info(unregisteredPolicies)
 
     const modifiedBy = createdBy;
 
@@ -232,7 +233,7 @@ const registerClaim = async (req, res) => {
     const { SEQ_NO } = claimSeq;
     const claimNumber = `CL${SEQ_NO}`;
 
-    console.log({ message: `Your claim number is ${claimNumber}` });
+    logger.info({ message: `Your claim number is ${claimNumber}` });
 
     const intimationDetailsSnake = sanitizeDateFields(
       camelToSnakeCase({
@@ -374,7 +375,7 @@ const registerClaim = async (req, res) => {
     let trapScoreDataStore = trapScoreData;
 
     if (!trapScoreData) {
-      console.log("message")
+      logger.info("message")
       const data = {
         //24 values excluding comments
         gender: lifeAssuredDetails.gender,
@@ -412,7 +413,7 @@ const registerClaim = async (req, res) => {
 
       trapScoreDataStore = await trapScoreService.getTrapScore(data)
     }
-    console.log(trapScoreDataStore)
+    logger.info(trapScoreDataStore)
 
     const trapScoreSnake = sanitizeDateFields(
       camelToSnakeCase({
@@ -426,7 +427,7 @@ const registerClaim = async (req, res) => {
       }),
       ["TRAP_SCORE_DATE"]
     );
-    console.log(trapScoreSnake)
+    logger.info(trapScoreSnake)
 
     const claim = await Claim.create(
       {
@@ -478,13 +479,13 @@ const registerClaim = async (req, res) => {
     );
 
     lifeAssuredDetailsSnake.CLAIM_ID = claim.CLAIM_ID;
-    console.log('[DEBUG] lifeAssuredDetailsSnake ABOUT TO SAVE =', JSON.stringify(lifeAssuredDetailsSnake));
+    logger.info('[DEBUG] lifeAssuredDetailsSnake ABOUT TO SAVE =', JSON.stringify(lifeAssuredDetailsSnake));
     debugLog('lifeAssuredDetailsSnake ABOUT TO SAVE', lifeAssuredDetailsSnake);
     const lifeAssured = await LifeAssuredDetail.create(
       lifeAssuredDetailsSnake,
       { transaction }
     );
-    console.log('[DEBUG] lifeAssured SAVED ROW =', JSON.stringify(lifeAssured?.dataValues));
+    logger.info('[DEBUG] lifeAssured SAVED ROW =', JSON.stringify(lifeAssured?.dataValues));
     debugLog('lifeAssured SAVED ROW', lifeAssured?.dataValues);
 
     contactDetailsSnake.CLAIM_ID = claim.CLAIM_ID;
@@ -650,7 +651,7 @@ const registerClaim = async (req, res) => {
       };
       return HospitalDetailsTable.create(HospitalDetailsTableSnake, { transaction });
     });
-    // console.log(HospitalDetailsTablePromises)
+    // logger.info(HospitalDetailsTablePromises)
     const HospitalDetailsTableResults = await Promise.all(HospitalDetailsTablePromises);
 
     // doctor details tab in eagle screen
@@ -663,7 +664,7 @@ const registerClaim = async (req, res) => {
       };
       return DoctorDetailsTable.create(DoctorDetailsTableSnake, { transaction });
     });
-    // console.log(DoctorDetailsTablePromises);
+    // logger.info(DoctorDetailsTablePromises);
     const DoctorDetailsTableResults = await Promise.all(DoctorDetailsTablePromises);
 
 
@@ -795,7 +796,7 @@ const registerClaim = async (req, res) => {
       },
       { where: { CLAIM_ID: claim.CLAIM_ID }, transaction }
     );
-    console.log('registerClaim >> acuity', { claimNumber, ...acuity });
+    logger.info('registerClaim >> acuity', { claimNumber, ...acuity });
 
     // Update the claimSequence table for the next sequence number
     await ClaimSequence.update(
@@ -810,7 +811,7 @@ const registerClaim = async (req, res) => {
     // outside the main txn for reliability). Raw SQL avoids Sequelize PK quirks
     // on iib_enquiry (model marks CLAIM_ID as PK; physical table has none).
     try {
-      console.log('[IIB] registerClaim >> post-commit iib_enquiry INSERT', iibEnquiryPayload);
+      logger.info('[IIB] registerClaim >> post-commit iib_enquiry INSERT', iibEnquiryPayload);
       debugLog('iibEnquiryPayload post-commit', iibEnquiryPayload);
       await sequelize.query(
         `INSERT INTO iib_enquiry (
@@ -829,10 +830,10 @@ const registerClaim = async (req, res) => {
       iibEnquiry = await IibEnquiry.findOne({
         where: { CLAIM_ID: iibEnquiryPayload.CLAIM_ID },
       });
-      console.log('[IIB] registerClaim >> iib_enquiry saved', iibEnquiry?.dataValues || iibEnquiryPayload);
+      logger.info('[IIB] registerClaim >> iib_enquiry saved', iibEnquiry?.dataValues || iibEnquiryPayload);
       debugLog('iibEnquiry saved', iibEnquiry?.dataValues || iibEnquiryPayload);
     } catch (iibErr) {
-      console.error('[IIB] registerClaim >> post-commit iib_enquiry INSERT FAILED', {
+      logger.error('[IIB] registerClaim >> post-commit iib_enquiry INSERT FAILED', {
         message: iibErr?.message,
         original: iibErr?.original?.sqlMessage || iibErr?.original,
         payload: iibEnquiryPayload,
@@ -856,7 +857,7 @@ const registerClaim = async (req, res) => {
         0;
       await ensureDecisionDetailsForClaim(claimNumber, payableBase, createdBy || "Registration");
     } catch (ddErr) {
-      console.error("registerClaim >> decision_details ensure failed:", ddErr.message || ddErr);
+      logger.error("registerClaim >> decision_details ensure failed:", ddErr.message || ddErr);
     }
 
     // Notify customer — direct WhatsApp/email API (same as Postman); not dependent on RabbitMQ worker
@@ -898,7 +899,7 @@ const registerClaim = async (req, res) => {
         req.body.sendMail === 'true' ||
         req.body.sendMail === 'Yes';
 
-      console.log('registerClaim >> notify', {
+      logger.info('registerClaim >> notify', {
         claimNumber,
         mobileNo: mobileNo ? '***' + String(mobileNo).slice(-4) : null,
         customerName,
@@ -914,7 +915,7 @@ const registerClaim = async (req, res) => {
         sendEmail: sendMail,
       });
     } catch (err) {
-      console.error('registerClaim >> Registration notify error:', err.message || err);
+      logger.error('registerClaim >> Registration notify error:', err.message || err);
     }
 
     // VAPT: the frontend only reads claimId/claimNumber/acuity from this response —
@@ -983,13 +984,13 @@ const registerClaim = async (req, res) => {
         await transaction.rollback();
       }
     } catch (rollbackErr) {
-      console.error(
+      logger.error(
         "registerClaim >> rollback failed:",
         rollbackErr?.message || rollbackErr
       );
     }
 
-    console.error("registerClaim >> error object:", error);
+    logger.error("registerClaim >> error object:", error);
     const exposeDetail = appConfig.get('NODE_ENV') !== "production";
     res.status(500).json({
       message: "Internal server error",

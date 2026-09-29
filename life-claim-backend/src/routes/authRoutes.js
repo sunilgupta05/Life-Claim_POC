@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const express = require('express');
 const appConfig = require('../config/configService');
 const https = require('https');
@@ -74,7 +75,7 @@ function keycloakAxiosOptions() {
   if (allowInsecureTls) {
     opts.httpsAgent = new https.Agent({ rejectUnauthorized: false });
   } else if (insecureTlsRequested && appConfig.get('NODE_ENV') === 'production') {
-    console.error('[security] KEYCLOAK_TLS_INSECURE=true is ignored in production.');
+    logger.error('[security] KEYCLOAK_TLS_INSECURE=true is ignored in production.');
   }
   return opts;
 }
@@ -302,7 +303,7 @@ router.post('/keycloak/token', authTokenLimiter, validateKeycloakTokenBody, asyn
     // Network: ECONNREFUSED, socket hang up, ETIMEDOUT, wrong http/https, Keycloak down, TLS mismatch
     const code = error.code || '';
     const msg = error.message || 'Unknown error';
-    console.error(
+    logger.error(
       `[auth] Keycloak token request failed → ${tokenEndpoint} | ${code} ${msg}`
     );
     const body = {

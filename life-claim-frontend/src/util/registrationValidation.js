@@ -148,8 +148,14 @@ function computePolicyAgeForTrap(data, policy) {
 }
 
 /** Validate a demographics sub-section before Save & Continue. */
-export function validateDemographicsSection(sectionId, data, { policy, fromRegisterGate } = {}) {
+export function validateDemographicsSection(sectionId, data, { policy, fromRegisterGate, hiddenFields } = {}) {
   const missing = []
+  // Roadmap 2.3: a field an admin HID for this deployment must not be demanded
+  // (that would soft-lock the section). `hiddenFields` is a Set of data keys.
+  const hidden = (k) => hiddenFields instanceof Set && hiddenFields.has(k)
+  const need = (k, label, empty = isEmpty(data[k])) => {
+    if (!hidden(k) && empty) missing.push(label)
+  }
 
   switch (sectionId) {
     case 'register':
@@ -159,18 +165,16 @@ export function validateDemographicsSection(sectionId, data, { policy, fromRegis
       break
 
     case 'intimation':
-      if (isEmpty(data.intimationDate)) missing.push('Intimation Date')
-      if (isEmpty(data.source)) missing.push('Source')
-      if (isEmpty(data.bondType)) missing.push('Bond Type')
-      if (isEmpty(data.firPmReceived)) missing.push('FIR / PM Received')
-      if (isEmpty(data.declaredByDoctor)) missing.push('Declared by Doctor')
-      if (isEmpty(data.dateOfDeathEvent)) missing.push('Date of Death / Event')
-      if (isEmpty(data.dateOfDeathReg)) missing.push('Date of Death Registration')
-      if (isEmpty(data.placeOfDeath)) missing.push('Place of Death')
-      if (data.dateOfDeathEvent && isEmpty(data.policyStatusOnDod)) {
-        missing.push('Policy Status on DOD/DOE')
-      }
-      if (isEmpty(data.deathCertificate)) missing.push('Death Certificate Type')
+      need('intimationDate', 'Intimation Date')
+      need('source', 'Source')
+      need('bondType', 'Bond Type')
+      need('firPmReceived', 'FIR / PM Received')
+      need('declaredByDoctor', 'Declared by Doctor')
+      need('dateOfDeathEvent', 'Date of Death / Event')
+      need('dateOfDeathReg', 'Date of Death Registration')
+      need('placeOfDeath', 'Place of Death')
+      need('policyStatusOnDod', 'Policy Status on DOD/DOE', Boolean(data.dateOfDeathEvent) && isEmpty(data.policyStatusOnDod))
+      need('deathCertificate', 'Death Certificate Type')
       {
         const dateCheck = validateIntimationDates(data, { policy })
         if (!dateCheck.valid) missing.push(...dateCheck.errors)
@@ -198,8 +202,8 @@ export function validateDemographicsSection(sectionId, data, { policy, fromRegis
 
     case 'contract':
       if (!policy && isEmpty(data.policyId)) missing.push('Policy details (load policy first)')
-      if (isEmpty(data.nameChangeDecl)) missing.push('Name change declaration (Yes/No)')
-      if (isEmpty(data.policyAge) && data.policyAge1 == null) {
+      need('nameChangeDecl', 'Name change declaration (Yes/No)')
+      if (!hidden('policyAge') && isEmpty(data.policyAge) && data.policyAge1 == null) {
         missing.push('Policy age (set Date of Death in Intimation first)')
       }
       break
@@ -222,27 +226,27 @@ export function validateDemographicsSection(sectionId, data, { policy, fromRegis
 }
 
 /** v1 gate sections required before Demographics → Requirements. */
-export function validateDemographicsForTrap(data, { policy, fromRegisterGate } = {}) {
+export function validateDemographicsForTrap(data, { policy, fromRegisterGate, hiddenFields } = {}) {
   const sections = DEMO_SECTIONS_REQUIRED.filter(
     (id) => id !== 'trap' && (!fromRegisterGate || id !== 'register')
   )
   const missing = []
   sections.forEach((id) => {
-    const result = validateDemographicsSection(id, data, { policy, fromRegisterGate })
+    const result = validateDemographicsSection(id, data, { policy, fromRegisterGate, hiddenFields })
     result.missing.forEach((m) => missing.push(`${DEMO_SECTION_LABELS[id]}: ${m}`))
   })
   return { valid: missing.length === 0, missing }
 }
 
 /** All mandatory demographics sections (v1 Next: Requirement gate). */
-export function validateDemographicsComplete(data, { policy, fromRegisterGate } = {}) {
+export function validateDemographicsComplete(data, { policy, fromRegisterGate, hiddenFields } = {}) {
   const sections = fromRegisterGate
     ? DEMO_SECTIONS_REQUIRED.filter((id) => id !== 'register')
     : DEMO_SECTIONS_REQUIRED
 
   const missing = []
   sections.forEach((id) => {
-    const result = validateDemographicsSection(id, data, { policy, fromRegisterGate })
+    const result = validateDemographicsSection(id, data, { policy, fromRegisterGate, hiddenFields })
     result.missing.forEach((m) => missing.push(`${DEMO_SECTION_LABELS[id]}: ${m}`))
   })
   return { valid: missing.length === 0, missing }

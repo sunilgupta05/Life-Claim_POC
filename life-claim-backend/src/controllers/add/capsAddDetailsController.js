@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddDetailsDoa = require('../../dataAccess/add/capsAddDetailsDao');
 const appConfig = require('../../config/configService');
 const { resetAddDemoData } = require('../../dataAccess/add/addDemoResetDao');
@@ -12,7 +13,7 @@ const internalError = (res, error) =>
   });
 
 const addExcelDataToTable = async (req, res, next) => {
-    console.log('capAddDetailsController.js >> addExcelDataToTable request received');
+    logger.info('capAddDetailsController.js >> addExcelDataToTable request received');
     const { username, data } = req.body;
     const { username: sessionUser } = getUserContext(req);
     const effectiveUser = sessionUser || username;
@@ -22,7 +23,7 @@ const addExcelDataToTable = async (req, res, next) => {
         return res.status(400).json({ success: false, error: validation.error });
     }
 
-    console.log('capAddDetailsController.js >> addExcelDataToTable payload accepted');
+    logger.info('capAddDetailsController.js >> addExcelDataToTable payload accepted');
     try {
         const addValue = await CapsAddDetailsDoa.insertCapsAddDetails({
             username: effectiveUser,
@@ -34,16 +35,16 @@ const addExcelDataToTable = async (req, res, next) => {
             data: addValue
         });
     } catch (e) {
-        console.error('Error in addExcelDataToTable:', e);
+        logger.error('Error in addExcelDataToTable:', e);
         internalError(res, e);
     }
 }
 
 const getCapsAddDetails = async (req, res, next) => {
-    //console.log('getCapsAddDetails', req.body);
+    //logger.info('getCapsAddDetails', req.body);
     const attribute = req.body.attribute;
     const value = req.body.value;
-    //console.log('capsAddDetailsController.js >> getCapsAddDetails: ', attribute, value);
+    //logger.info('capsAddDetailsController.js >> getCapsAddDetails: ', attribute, value);
     try {
         const addValue = await CapsAddDetailsDoa.getCapsAddDetails(attribute, value);
         res.status(200).json({
@@ -51,7 +52,7 @@ const getCapsAddDetails = async (req, res, next) => {
             data: addValue
         });
     } catch (e) {
-        console.error('Error in getAddCapsDetails:', e);
+        logger.error('Error in getAddCapsDetails:', e);
         res.status(500).json({
             success: false,
             error: e.message
@@ -66,7 +67,7 @@ const getCapsAddDetailsByDecision = async (req, res, next) => {
     const limit = parseInt(req.body.limit, 10) || 10;
     const page = parseInt(req.body.page, 10) || 0;
     const offset = req.body.offset != null ? parseInt(req.body.offset, 10) : page * limit;
-    console.log('capsAddDetailsController.js >> getCapsAddDetailsByDecision request received');
+    logger.info('capsAddDetailsController.js >> getCapsAddDetailsByDecision request received');
     try {
         const result = await CapsAddDetailsDoa.getCapsAddDetailsByDecision(caseType, attribute, value, limit, offset);
         res.status(200).json({
@@ -79,7 +80,7 @@ const getCapsAddDetailsByDecision = async (req, res, next) => {
         if (e.message?.includes('Invalid search attribute') || e.message?.includes('required')) {
             return res.status(400).json({ success: false, error: e.message });
         }
-        console.error('Error in getCapsAddDetailsByDecision:', e);
+        logger.error('Error in getCapsAddDetailsByDecision:', e);
         internalError(res, e);
     }
 }
@@ -88,7 +89,7 @@ const updateCapsAddDetailsCaseStatusController = async (req, res, next) => {
     const caseId = req.body.caseId;
     const caseStatus = req.body.caseStatus;
     const username = req.body.username;
-    console.log('capsAddDetailsController.js >> updateCapsAddDetailsCaseStatusController request received');
+    logger.info('capsAddDetailsController.js >> updateCapsAddDetailsCaseStatusController request received');
     try {
         const updateCaseStatus = await CapsAddDetailsDoa.updateCapsAddDetailsCaseStatus(caseId, caseStatus, username);
         res.status(200).json({
@@ -99,18 +100,18 @@ const updateCapsAddDetailsCaseStatusController = async (req, res, next) => {
         if (e.statusCode === 409 || e.statusCode === 404) {
             return res.status(e.statusCode).json({ success: false, error: e.message });
         }
-        console.error('Error in updateCapsAddDetailsCaseStatusController:', e);
+        logger.error('Error in updateCapsAddDetailsCaseStatusController:', e);
         internalError(res, e);
     }
 }
 
 //get policy number and username to check if the policyNumber  is already present in the CapsAddDetails table and username is present in the Users table
 const getCapsAddDetailsPolicyNumberUsername = async (req, res, next) => {
-    console.log('capsAddDetailsController.js >> getCapsAddDetailsPolicyNumberUsername request received');
+    logger.info('capsAddDetailsController.js >> getCapsAddDetailsPolicyNumberUsername request received');
     try{
-        console.log('Calling DAO function...');
+        logger.info('Calling DAO function...');
         const response = await CapsAddDetailsDoa.getCapsAddDetailsPolicyNumberUsername();
-        console.log('DAO response received:', response);
+        logger.info('DAO response received:', response);
         
         res.status(200).json({
             success: true,
@@ -118,7 +119,7 @@ const getCapsAddDetailsPolicyNumberUsername = async (req, res, next) => {
             data: response
         });
     }catch(e){
-        console.error('Error in getCapsAddDetailsPolicyNumberUsername:', e);
+        logger.error('Error in getCapsAddDetailsPolicyNumberUsername:', e);
         internalError(res, e);
     }
 }
@@ -126,7 +127,7 @@ const getCapsAddDetailsPolicyNumberUsername = async (req, res, next) => {
 const addCaseAssignmentBulk = async (req, res, next) => {
     const { data, uploadedBy } = req.body;
     const username = uploadedBy || req.user?.username || '';
-    console.log('capsAddDetailsController.js >> addCaseAssignmentBulk request received');
+    logger.info('capsAddDetailsController.js >> addCaseAssignmentBulk request received');
 
     try {
         if (!Array.isArray(data) || data.length === 0) {
@@ -139,7 +140,7 @@ const addCaseAssignmentBulk = async (req, res, next) => {
             data: result,
         });
     } catch (e) {
-        console.error('Error in addCaseAssignmentBulk:', e);
+        logger.error('Error in addCaseAssignmentBulk:', e);
         internalError(res, e);
     }
 };
@@ -163,7 +164,7 @@ const assignCasesByCaseIdsController = async (req, res, next) => {
             data: result,
         });
     } catch (e) {
-        console.error('Error in assignCasesByCaseIdsController:', e);
+        logger.error('Error in assignCasesByCaseIdsController:', e);
         internalError(res, e);
     }
 };
@@ -185,7 +186,7 @@ const resetAddDemoDataController = async (req, res) => {
             data: { deleted, totalDeleted },
         });
     } catch (e) {
-        console.error('Error in resetAddDemoDataController:', e);
+        logger.error('Error in resetAddDemoDataController:', e);
         internalError(res, e);
     }
 };

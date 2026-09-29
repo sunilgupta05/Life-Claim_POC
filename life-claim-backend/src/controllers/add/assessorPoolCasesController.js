@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const { refreshAssessorPoolCase, batchUpsertAssessorPoolCases, updateAssessorPoolStatus } = require('../../dataAccess/add/capsAssessorPoolCasesDao');
 const appConfig = require('../../config/configService');
 const { assertPoolAction } = require('../../util/capsAddCaseGuards');
@@ -32,7 +33,7 @@ const refreshAssessorPoolCaseController = async (req, res, next) => {
             data: result
         });
     } catch (error) {
-        console.error('Error in refreshAssessorPoolCaseController:', error);
+        logger.error('Error in refreshAssessorPoolCaseController:', error);
         internalError(res, error);
     }
 };
@@ -61,7 +62,7 @@ const refreshAssessorPoolCasesBatchController = async (req, res, next) => {
                 const result = await upsertAssessorPoolCase(caseId, exclusionResult, batchId || null);
                 results.push({ caseId, result });
             } catch (error) {
-                console.error(`Error refreshing case ${caseId}:`, error);
+                logger.error(`Error refreshing case ${caseId}:`, error);
                 errors.push({
                     caseId,
                     error: exposeErrorDetails ? (error?.message || 'Refresh failed') : 'Refresh failed',
@@ -78,7 +79,7 @@ const refreshAssessorPoolCasesBatchController = async (req, res, next) => {
             }
         });
     } catch (error) {
-        console.error('Error in refreshAssessorPoolCasesBatchController:', error);
+        logger.error('Error in refreshAssessorPoolCasesBatchController:', error);
         internalError(res, error);
     }
 };
@@ -106,7 +107,7 @@ const closeCasesAsExclusionController = async (req, res, next) => {
             data: result
         });
     } catch (error) {
-        console.error('Error in closeCasesAsExclusionController:', error);
+        logger.error('Error in closeCasesAsExclusionController:', error);
         internalError(res, error);
     }
 };
@@ -134,7 +135,7 @@ const moveCasesToBeReferredController = async (req, res, next) => {
             data: result
         });
     } catch (error) {
-        console.error('Error in moveCasesToBeReferredController:', error);
+        logger.error('Error in moveCasesToBeReferredController:', error);
         internalError(res, error);
     }
 };

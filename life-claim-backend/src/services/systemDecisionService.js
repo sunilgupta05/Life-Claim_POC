@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require("../config/dbConfig");
 const moment = require("moment");
 
@@ -1693,7 +1694,7 @@ const generateSystemDecision = async (obj) => {
 
   return "Success"
 } catch (error) {
-  console.log(error)
+  logger.info(error)
   return error
 }
 }
@@ -1705,7 +1706,7 @@ const generateSystemDecision1 = async (obj) => {
   const connection = await db.getConnection(); //instead of bsf use this here
   let calculatedFields = "";//to avoid error
 
-  console.log("simran fucntion dec1", obj);
+  logger.info("simran fucntion dec1", obj);
   try {
     if (
       obj.sourcingChannel.toLowerCase() === "telesales" &&
@@ -1716,7 +1717,7 @@ const generateSystemDecision1 = async (obj) => {
       const [systemRemarksRow] = await connection.query(getSystemRemarksQuery, [
         claimId,
       ]);
-      // console.log("COUNTNUMBER:", systemRemarksRow[0].COUNTNUMBER);
+      // logger.info("COUNTNUMBER:", systemRemarksRow[0].COUNTNUMBER);
       if (systemRemarksRow[0].COUNTNUMBER <= 0) {
         const slNo = "Sales Source";
         const rem =
@@ -1731,7 +1732,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -1764,7 +1765,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -1789,7 +1790,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -1823,7 +1824,7 @@ const generateSystemDecision1 = async (obj) => {
             await connection.commit(transId);
           } catch (error) {
             await connection.rollback(transId);
-            console.error("Transaction failed:", error);
+            logger.error("Transaction failed:", error);
           }
         }
       }
@@ -1860,7 +1861,7 @@ const generateSystemDecision1 = async (obj) => {
     //           await connection.commit(transId);
     //         } catch (error) {
     //           await connection.rollback(transId);
-    //           console.error("Transaction failed:", error);
+    //           logger.error("Transaction failed:", error);
     //         }
     //       }
     //     }
@@ -1890,7 +1891,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -1917,7 +1918,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -1944,7 +1945,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -1971,7 +1972,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -1999,7 +2000,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -2025,7 +2026,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -2053,7 +2054,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -2080,7 +2081,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -2108,7 +2109,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -2134,7 +2135,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -2161,7 +2162,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -2187,7 +2188,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -2214,7 +2215,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -2240,7 +2241,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -2267,7 +2268,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
 
@@ -2293,7 +2294,7 @@ const generateSystemDecision1 = async (obj) => {
           await connection.commit(transId);
         } catch (error) {
           await connection.rollback(transId);
-          console.error("Transaction failed:", error);
+          logger.error("Transaction failed:", error);
         }
       }
     }
@@ -3167,7 +3168,7 @@ const generateSystemDecision1 = async (obj) => {
       stpCaseRemark = "";
     }
 
-    console.log("okkk. reached till part 1 of code");
+    logger.info("okkk. reached till part 1 of code");
 
     let interest = "0.0";
     let penalInterest = "0.0";
@@ -3225,7 +3226,7 @@ const generateSystemDecision1 = async (obj) => {
     //   await connection.commit();
     // } catch (err) {
     //   await connection.rollback();
-    //   console.error("Transaction failed:", err);
+    //   logger.error("Transaction failed:", err);
     // }
 
         //confirm the params and table once
@@ -3455,7 +3456,7 @@ const generateSystemDecision1 = async (obj) => {
     //     // else {
     //     //   return "Data is Empty!";
     //     // }
-    console.log("okkk. reached till part 2 of code");
+    logger.info("okkk. reached till part 2 of code");
     return "Simran function Success";
   } catch (error) {
         let claimId="1";//declared to avoid error
@@ -3502,7 +3503,7 @@ const generateSystemDecision1 = async (obj) => {
 
     // throw new Error("Error while calling setSystemDecisionAndReason service");
 
-    console.log(error);
+    logger.info(error);
     return error;
   }
 };

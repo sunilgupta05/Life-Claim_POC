@@ -1,6 +1,9 @@
 // DemographicsTab v2 — null-safe
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Field, Input, Select, Textarea, SectionHeader, Grid, Btn, SubTabNav, InfoCard, useRegTokens } from './shared'
+import { CfgField, FieldConfigContext } from '../../components/forms/CfgField'
+import { useFieldOverrides, missingConfiguredRequired } from '../../hooks/useFieldOverrides'
+import { INTIMATION_FIELDS, LIFE_ASSURED_FIELDS, CONTRACT_FIELDS } from '../../config/demographicsCatalog'
 import { fetchPolicyDetails as fetchPolicyAPI, fetchAgentRepudiation } from '../../services/policyService'
 import { getPortfolioService } from '../../services/statesService'
 import { getCountries } from '../../services/masterService'
@@ -355,16 +358,45 @@ export default function DemographicsTab({ data, update, policy, setPolicy, onCom
     if (!silent) toast('success', 'Section Saved', `${s} saved successfully.`)
   }
 
-  const sectionValidationOpts = { policy, fromRegisterGate }
+  // Per-deployment field config for configurable Demographics sections (roadmap
+  // 2.3). ADDITIVE only — the app's own required rules always still apply; this
+  // adds any EXTRA fields an admin marked Required, and lets an admin hide fields.
+  // Auto-fill / read-only logic in the section JSX is untouched (see CfgField).
+  const laCfg = useFieldOverrides('registration.lifeassured')
+  const contractCfg = useFieldOverrides('registration.contract')
+  const intimationCfg = useFieldOverrides('registration.intimation')
+  const SECTION_CONFIG = {
+    intimation: { cfg: intimationCfg, catalog: INTIMATION_FIELDS },
+    la: { cfg: laCfg, catalog: LIFE_ASSURED_FIELDS },
+    contract: { cfg: contractCfg, catalog: CONTRACT_FIELDS },
+  }
+  // Keys an admin hid across all configured sections — so the section validator
+  // never demands a field that isn't shown (would otherwise soft-lock the tab).
+  const hiddenFields = useMemo(() => {
+    const s = new Set()
+    for (const { cfg, catalog } of Object.values(SECTION_CONFIG)) {
+      for (const f of catalog) if (cfg.isHidden(f.name)) s.add(f.name)
+    }
+    return s
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laCfg, contractCfg, intimationCfg])
+  const sectionValidationOpts = { policy, fromRegisterGate, hiddenFields }
+  const configRequiredMissing = (sectionId) => {
+    const s = SECTION_CONFIG[sectionId]
+    return s ? missingConfiguredRequired(s.cfg, s.catalog, data) : []
+  }
+
   const canContinueSection = (sectionId) =>
-    validateDemographicsSection(sectionId, data, sectionValidationOpts).valid
+    validateDemographicsSection(sectionId, data, sectionValidationOpts).valid &&
+    configRequiredMissing(sectionId).length === 0
   const canCompleteDemographics = validateDemographicsComplete(data, sectionValidationOpts).valid
 
   const tryContinue = (sectionId, nextSection) => {
     const { valid, missing } = validateDemographicsSection(sectionId, data, sectionValidationOpts)
-    if (!valid) {
+    const extraMissing = configRequiredMissing(sectionId)
+    if (!valid || extraMissing.length) {
       if (sectionId === 'cause') setShowCauseWarning(true)
-      showValidationToast(toast, missing, 'Complete required fields')
+      showValidationToast(toast, [...missing, ...extraMissing], 'Complete required fields')
       return
     }
     if (sectionId === 'cause') setShowCauseWarning(false)
@@ -700,16 +732,17 @@ export default function DemographicsTab({ data, update, policy, setPolicy, onCom
               <div key={k}><div style={{ fontSize: '10px', fontWeight: 700, color: T.textSubtle, textTransform: 'uppercase' }}>{k}</div><div style={{ fontSize: '13px', fontWeight: 700, color: T.textPrimary }}>{v || '—'}</div></div>
             ))}
           </div>
+          <FieldConfigContext.Provider value={intimationCfg}>
           <Grid cols={3}>
-            <Field label="Intimation Date" required error={dateFieldErrors.intimationDate}>
+            <CfgField name="intimationDate" label="Intimation Date" required error={dateFieldErrors.intimationDate}>
               <Input type="date" max={todayMax} value={data.intimationDate} onChange={e => update({ intimationDate: e.target.value })} error={dateFieldErrors.intimationDate} />
-            </Field>
-            <Field label="Source" required><Select value={data.source} onChange={e => update({ source: e.target.value })} options={['Branch', 'Direct', 'Website', 'Email', 'WhatsApp', 'Agent', 'Hospital']} /></Field>
-            <Field label="Bond Type" required><Select value={data.bondType} onChange={e => update({ bondType: e.target.value })} options={['Policy Bond', 'Indemnity Bond', 'Not Provided']} /></Field>
-            <Field label="FIR / PM Received" required><Select value={data.firPmReceived} onChange={e => update({ firPmReceived: e.target.value })} options={['Yes', 'No', 'Not Required']} /></Field>
-            <Field label="Declared by Doctor" required><Select value={data.declaredByDoctor} onChange={e => update({ declaredByDoctor: e.target.value })} options={['Yes', 'No']} /></Field>
-            <Field label="WhatsApp Flag"><Select value={data.whatsappFlag} onChange={e => update({ whatsappFlag: e.target.value })} options={['Yes', 'No']} /></Field>
-            <Field label="Date of Death / Event" required error={dateFieldErrors.dateOfDeathEvent}>
+            </CfgField>
+            <CfgField name="source" label="Source" required><Select value={data.source} onChange={e => update({ source: e.target.value })} options={['Branch', 'Direct', 'Website', 'Email', 'WhatsApp', 'Agent', 'Hospital']} /></CfgField>
+            <CfgField name="bondType" label="Bond Type" required><Select value={data.bondType} onChange={e => update({ bondType: e.target.value })} options={['Policy Bond', 'Indemnity Bond', 'Not Provided']} /></CfgField>
+            <CfgField name="firPmReceived" label="FIR / PM Received" required><Select value={data.firPmReceived} onChange={e => update({ firPmReceived: e.target.value })} options={['Yes', 'No', 'Not Required']} /></CfgField>
+            <CfgField name="declaredByDoctor" label="Declared by Doctor" required><Select value={data.declaredByDoctor} onChange={e => update({ declaredByDoctor: e.target.value })} options={['Yes', 'No']} /></CfgField>
+            <CfgField name="whatsappFlag" label="WhatsApp Flag"><Select value={data.whatsappFlag} onChange={e => update({ whatsappFlag: e.target.value })} options={['Yes', 'No']} /></CfgField>
+            <CfgField name="dateOfDeathEvent" label="Date of Death / Event" required error={dateFieldErrors.dateOfDeathEvent}>
               <Input
                 type="date"
                 max={todayMax}
@@ -723,40 +756,41 @@ export default function DemographicsTab({ data, update, policy, setPolicy, onCom
                   })
                 }}
               />
-            </Field>
-            <Field label="Date of Death Registration" required error={dateFieldErrors.dateOfDeathReg}>
+            </CfgField>
+            <CfgField name="dateOfDeathReg" label="Date of Death Registration" required error={dateFieldErrors.dateOfDeathReg}>
               <Input type="date" max={todayMax} value={data.dateOfDeathReg} onChange={e => update({ dateOfDeathReg: e.target.value })} error={dateFieldErrors.dateOfDeathReg} />
-            </Field>
-            <Field label="Date of Cremation" error={dateFieldErrors.dateOfCremation}>
+            </CfgField>
+            <CfgField name="dateOfCremation" label="Date of Cremation" error={dateFieldErrors.dateOfCremation}>
               <Input type="date" max={todayMax} value={data.dateOfCremation} onChange={e => update({ dateOfCremation: e.target.value })} error={dateFieldErrors.dateOfCremation} />
-            </Field>
-            <Field label="Date of Accident" error={dateFieldErrors.dateOfAccident}>
+            </CfgField>
+            <CfgField name="dateOfAccident" label="Date of Accident" error={dateFieldErrors.dateOfAccident}>
               <Input type="date" max={todayMax} value={data.dateOfAccident} onChange={e => update({ dateOfAccident: e.target.value })} error={dateFieldErrors.dateOfAccident} />
-            </Field>
-            <Field label="Place of Death" required><Select value={data.placeOfDeath} onChange={e => update({ placeOfDeath: e.target.value })} options={placesOfDeath} /></Field>
-            <Field label="Policy Status on DOD"><Input value={data.policyStatusOnDod} onChange={e => update({ policyStatusOnDod: e.target.value })} readOnly={true} placeholder="Auto-filled" /></Field>
+            </CfgField>
+            <CfgField name="placeOfDeath" label="Place of Death" required><Select value={data.placeOfDeath} onChange={e => update({ placeOfDeath: e.target.value })} options={placesOfDeath} /></CfgField>
+            <CfgField name="policyStatusOnDod" label="Policy Status on DOD"><Input value={data.policyStatusOnDod} onChange={e => update({ policyStatusOnDod: e.target.value })} readOnly={true} placeholder="Auto-filled" /></CfgField>
           </Grid>
           <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: `1px solid ${T.border}` }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: T.primary, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' }}>Death Certificate Details</div>
             <Grid cols={3}>
-              <Field label="Death Certificate Type" required>
+              <CfgField name="deathCertificate" label="Death Certificate Type" required>
                 <Select value={data.deathCertificate} onChange={e => {
                   const v = e.target.value; update({ deathCertificate: v, ...(v === 'NA' ? { dcRegNumber: 'NA', dcRegDate: '', dcIssueDistrict: 'NA', dcIssuingAuthority: 'NA', dcTehsil: 'NA', dcIssueState: 'NA', dcPlaceOnCertificate: 'NA', dcVillageBlock: 'NA', dcOfficerPosition: 'NA' } : {}) })
                 }} options={['NA', 'Manual', 'Printed']} />
-              </Field>
-              <Field label="Reg. Number"><Input value={data.dcRegNumber} onChange={e => update({ dcRegNumber: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Reg. Date" error={dateFieldErrors.dcRegDate}>
+              </CfgField>
+              <CfgField name="dcRegNumber" label="Reg. Number"><Input value={data.dcRegNumber} onChange={e => update({ dcRegNumber: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcRegDate" label="Reg. Date" error={dateFieldErrors.dcRegDate}>
                 <Input type="date" max={todayMax} value={data.dcRegDate} onChange={e => update({ dcRegDate: e.target.value })} readOnly={data.deathCertificate === 'NA'} error={dateFieldErrors.dcRegDate} />
-              </Field>
-              <Field label="Issue District"><Input value={data.dcIssueDistrict} onChange={e => update({ dcIssueDistrict: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Issuing Authority"><Input value={data.dcIssuingAuthority} onChange={e => update({ dcIssuingAuthority: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Tehsil"><Input value={data.dcTehsil} onChange={e => update({ dcTehsil: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Issue State"><Select value={data.dcIssueState} onChange={e => update({ dcIssueState: e.target.value })} options={states} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Place on Certificate"><Input value={data.dcPlaceOnCertificate} onChange={e => update({ dcPlaceOnCertificate: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Village / Block"><Input value={data.dcVillageBlock} onChange={e => update({ dcVillageBlock: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
-              <Field label="Officer Position" full><Input value={data.dcOfficerPosition} onChange={e => update({ dcOfficerPosition: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></Field>
+              </CfgField>
+              <CfgField name="dcIssueDistrict" label="Issue District"><Input value={data.dcIssueDistrict} onChange={e => update({ dcIssueDistrict: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcIssuingAuthority" label="Issuing Authority"><Input value={data.dcIssuingAuthority} onChange={e => update({ dcIssuingAuthority: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcTehsil" label="Tehsil"><Input value={data.dcTehsil} onChange={e => update({ dcTehsil: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcIssueState" label="Issue State"><Select value={data.dcIssueState} onChange={e => update({ dcIssueState: e.target.value })} options={states} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcPlaceOnCertificate" label="Place on Certificate"><Input value={data.dcPlaceOnCertificate} onChange={e => update({ dcPlaceOnCertificate: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcVillageBlock" label="Village / Block"><Input value={data.dcVillageBlock} onChange={e => update({ dcVillageBlock: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
+              <CfgField name="dcOfficerPosition" label="Officer Position" full><Input value={data.dcOfficerPosition} onChange={e => update({ dcOfficerPosition: e.target.value })} readOnly={data.deathCertificate === 'NA'} /></CfgField>
             </Grid>
           </div>
+          </FieldConfigContext.Provider>
           {!intimationDateCheck.valid && intimationDateCheck.errors.length > 0 && (
             <InfoCard type="warning">
               <div style={{ fontWeight: 700, marginBottom: '8px' }}>Fix these date issues before continuing:</div>
@@ -963,40 +997,42 @@ export default function DemographicsTab({ data, update, policy, setPolicy, onCom
 
       {/* 6. Life Assured Details */}
       {sec('la', secTitle(6, 'Life Assured Details'), 'Details of the insured person',
+        <FieldConfigContext.Provider value={laCfg}>
         <div>
           <Grid cols={3}>
-            <Field label="Name" required><Input value={data.laName || (policyClients[0] ? [policyClients[0].name, policyClients[0].lastName].filter(Boolean).join(' ') : '')} onChange={e => update({ laName: e.target.value })} readOnly={!!policy} /></Field>
-            <Field label="Client ID"><Input value={data.laClientId || (policyClients[0]?.clientId)} readOnly={true} /></Field>
-            <Field label="Date of Birth"><Input type="date" value={data.laDob || (policyClients[0]?.dob)} onChange={e => update({ laDob: e.target.value })} readOnly={!!policy} /></Field>
-            <Field label="Gender"><Select value={data.laGender || (policyClients[0]?.gender)} onChange={e => update({ laGender: e.target.value })} options={['Male', 'Female', 'Other']} readOnly={!!policy} /></Field>
-            <Field label="Risk Indicator"><Input value={data.laRiskIndicator || (policyClients[0]?.riskIndicator)} readOnly={true} placeholder="From policy" /></Field>
-            <Field label="Age at Death (Auto)"><Input value={data.laAgeAtDeath || (data.dateOfDeathEvent && (data.laDob || policyClients[0]?.dob) ? `${new Date(data.dateOfDeathEvent).getFullYear() - new Date(data.laDob || policyClients[0]?.dob).getFullYear()} yrs` : 'Auto-calc')} readOnly={true} /></Field>
-            <Field label="ID Proof Type"><Select value={data.laIdProofType} onChange={e => update({ laIdProofType: e.target.value })} options={['Aadhaar', 'PAN', 'Passport', 'Voter ID', 'Others']} /></Field>
-            <Field label="ID Number"><Input value={data.laIdNumber || (policyClients[0]?.idNumber)} onChange={e => update({ laIdNumber: e.target.value })} /></Field>
-            <Field label="Mobile No"><Input value={data.laMobileNo || (policyClients[0]?.mobileNo)} onChange={e => update({ laMobileNo: e.target.value })} maxLength={10} /></Field>
-            <Field label="Email"><Input type="email" value={data.laEmailId || (policyClients[0]?.emailId)} onChange={e => update({ laEmailId: e.target.value })} /></Field>
-            <Field label="Flat/House No"><Input value={data.laFlat || (policyClients[0]?.flat)} onChange={e => update({ laFlat: e.target.value })} readOnly={!!policy && !!(data.laFlat || policyClients[0]?.flat)} /></Field>
-            <Field label="Road / Street"><Input value={data.laRoad || (policyClients[0]?.road)} onChange={e => update({ laRoad: e.target.value })} readOnly={!!policy && !!(data.laRoad || policyClients[0]?.road)} /></Field>
-            <Field label="Area / Locality"><Input value={data.laArea || (policyClients[0]?.area)} onChange={e => update({ laArea: e.target.value })} readOnly={!!policy && !!(data.laArea || policyClients[0]?.area)} /></Field>
-            <Field label="City"><Input value={data.laCity || (policyClients[0]?.city)} onChange={e => update({ laCity: e.target.value })} readOnly={!!policy && !!(data.laCity || policyClients[0]?.city)} /></Field>
-            <Field label="State"><Select value={data.laState || (policyClients[0]?.state)} onChange={e => update({ laState: e.target.value })} options={states} readOnly={!!policy && !!(data.laState || policyClients[0]?.state)} /></Field>
-            <Field label="Pincode"><Input value={data.laPincode || (policyClients[0]?.pincode)} onChange={e => update({ laPincode: e.target.value })} maxLength={6} readOnly={!!policy && !!(data.laPincode || policyClients[0]?.pincode)} /></Field>
+            <CfgField name="laName" label="Name" required><Input value={data.laName || (policyClients[0] ? [policyClients[0].name, policyClients[0].lastName].filter(Boolean).join(' ') : '')} onChange={e => update({ laName: e.target.value })} readOnly={!!policy} /></CfgField>
+            <CfgField name="laClientId" label="Client ID"><Input value={data.laClientId || (policyClients[0]?.clientId)} readOnly={true} /></CfgField>
+            <CfgField name="laDob" label="Date of Birth"><Input type="date" value={data.laDob || (policyClients[0]?.dob)} onChange={e => update({ laDob: e.target.value })} readOnly={!!policy} /></CfgField>
+            <CfgField name="laGender" label="Gender"><Select value={data.laGender || (policyClients[0]?.gender)} onChange={e => update({ laGender: e.target.value })} options={['Male', 'Female', 'Other']} readOnly={!!policy} /></CfgField>
+            <CfgField name="laRiskIndicator" label="Risk Indicator"><Input value={data.laRiskIndicator || (policyClients[0]?.riskIndicator)} readOnly={true} placeholder="From policy" /></CfgField>
+            <CfgField name="laAgeAtDeath" label="Age at Death (Auto)"><Input value={data.laAgeAtDeath || (data.dateOfDeathEvent && (data.laDob || policyClients[0]?.dob) ? `${new Date(data.dateOfDeathEvent).getFullYear() - new Date(data.laDob || policyClients[0]?.dob).getFullYear()} yrs` : 'Auto-calc')} readOnly={true} /></CfgField>
+            <CfgField name="laIdProofType" label="ID Proof Type"><Select value={data.laIdProofType} onChange={e => update({ laIdProofType: e.target.value })} options={['Aadhaar', 'PAN', 'Passport', 'Voter ID', 'Others']} /></CfgField>
+            <CfgField name="laIdNumber" label="ID Number"><Input value={data.laIdNumber || (policyClients[0]?.idNumber)} onChange={e => update({ laIdNumber: e.target.value })} /></CfgField>
+            <CfgField name="laMobileNo" label="Mobile No"><Input value={data.laMobileNo || (policyClients[0]?.mobileNo)} onChange={e => update({ laMobileNo: e.target.value })} maxLength={10} /></CfgField>
+            <CfgField name="laEmailId" label="Email"><Input type="email" value={data.laEmailId || (policyClients[0]?.emailId)} onChange={e => update({ laEmailId: e.target.value })} /></CfgField>
+            <CfgField name="laFlat" label="Flat/House No"><Input value={data.laFlat || (policyClients[0]?.flat)} onChange={e => update({ laFlat: e.target.value })} readOnly={!!policy && !!(data.laFlat || policyClients[0]?.flat)} /></CfgField>
+            <CfgField name="laRoad" label="Road / Street"><Input value={data.laRoad || (policyClients[0]?.road)} onChange={e => update({ laRoad: e.target.value })} readOnly={!!policy && !!(data.laRoad || policyClients[0]?.road)} /></CfgField>
+            <CfgField name="laArea" label="Area / Locality"><Input value={data.laArea || (policyClients[0]?.area)} onChange={e => update({ laArea: e.target.value })} readOnly={!!policy && !!(data.laArea || policyClients[0]?.area)} /></CfgField>
+            <CfgField name="laCity" label="City"><Input value={data.laCity || (policyClients[0]?.city)} onChange={e => update({ laCity: e.target.value })} readOnly={!!policy && !!(data.laCity || policyClients[0]?.city)} /></CfgField>
+            <CfgField name="laState" label="State"><Select value={data.laState || (policyClients[0]?.state)} onChange={e => update({ laState: e.target.value })} options={states} readOnly={!!policy && !!(data.laState || policyClients[0]?.state)} /></CfgField>
+            <CfgField name="laPincode" label="Pincode"><Input value={data.laPincode || (policyClients[0]?.pincode)} onChange={e => update({ laPincode: e.target.value })} maxLength={6} readOnly={!!policy && !!(data.laPincode || policyClients[0]?.pincode)} /></CfgField>
           </Grid>
           <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: `1px solid ${T.border}` }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: T.primary, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '14px' }}>Occupation Details</div>
             <Grid cols={3}>
-              <Field label="Occupation Code"><Input value={data.laOccCode} onChange={e => update({ laOccCode: e.target.value })} placeholder="Occ. category" /></Field>
-              <Field label="Occupation Description"><Input value={data.laOccDesc} onChange={e => update({ laOccDesc: e.target.value })} /></Field>
-              <Field label="Annual Income"><Input value={data.laIncome} onChange={e => update({ laIncome: e.target.value })} placeholder="₹" /></Field>
-              <Field label="Establishment Name"><Input value={data.laEstName} onChange={e => update({ laEstName: e.target.value })} /></Field>
-              <Field label="Designation"><Input value={data.laDesignation} onChange={e => update({ laDesignation: e.target.value })} /></Field>
-              <Field label="Nature of Work"><Input value={data.laNatureOfWork} onChange={e => update({ laNatureOfWork: e.target.value })} /></Field>
+              <CfgField name="laOccCode" label="Occupation Code"><Input value={data.laOccCode} onChange={e => update({ laOccCode: e.target.value })} placeholder="Occ. category" /></CfgField>
+              <CfgField name="laOccDesc" label="Occupation Description"><Input value={data.laOccDesc} onChange={e => update({ laOccDesc: e.target.value })} /></CfgField>
+              <CfgField name="laIncome" label="Annual Income"><Input value={data.laIncome} onChange={e => update({ laIncome: e.target.value })} placeholder="₹" /></CfgField>
+              <CfgField name="laEstName" label="Establishment Name"><Input value={data.laEstName} onChange={e => update({ laEstName: e.target.value })} /></CfgField>
+              <CfgField name="laDesignation" label="Designation"><Input value={data.laDesignation} onChange={e => update({ laDesignation: e.target.value })} /></CfgField>
+              <CfgField name="laNatureOfWork" label="Nature of Work"><Input value={data.laNatureOfWork} onChange={e => update({ laNatureOfWork: e.target.value })} /></CfgField>
             </Grid>
           </div>
           <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
             <Btn onClick={() => tryContinue('la', 'contract')} disabled={!canContinueSection('la')}>Save & Continue →</Btn>
           </div>
         </div>
+        </FieldConfigContext.Provider>
       )}
 
       {/* 7. Contract Details */}
@@ -1018,35 +1054,37 @@ export default function DemographicsTab({ data, update, policy, setPolicy, onCom
               </div>
             </div>
           )}
+          <FieldConfigContext.Provider value={contractCfg}>
           <Grid cols={3}>
-            <Field label="Application No"><Input value={data.appNo} onChange={e => update({ appNo: e.target.value })} /></Field>
-            <Field label="Product Name"><Input value={data.productName || policy?.productName} readOnly={true} /></Field>
-            <Field label="Product Code"><Input value={data.productCode || policy?.productCode} readOnly={true} /></Field>
-            <Field label="CDF Signature Date"><Input type="date" value={data.cdfDate} onChange={e => update({ cdfDate: e.target.value })} /></Field>
-            <Field label="Issue Date"><Input type="date" value={data.issueDate || policy?.issueDate} readOnly={true} /></Field>
-            <Field label="Risk Commencement Date"><Input type="date" value={data.riskCommencementDate || policy?.riskCommencementDate} readOnly={true} /></Field>
-            <Field label="Paid to Date"><Input type="date" value={data.paidToDate || policy?.paidToDate} readOnly={true} /></Field>
-            <Field label="Premium Frequency"><Input value={data.premiumFrequency || policy?.premiumFrequency} readOnly={true} /></Field>
-            <Field label="Premium Status"><Input value={data.premiumStatus || policy?.premiumStatus} readOnly={true} /></Field>
-            <Field label="Policy Term (yrs)"><Input value={data.term || policy?.term} readOnly={true} /></Field>
-            <Field label="Premium Paid Years"><Input value={data.premPaidYrs || policy?.premPaidYrs} readOnly={true} /></Field>
-            <Field label="Total Premium Paid"><Input value={data.totalPremiumPaid || policy?.totalPremiumPaid} readOnly={true} /></Field>
-            <Field label="Original Sum Assured"><Input value={data.originalSA || policy?.originalSA} readOnly={true} /></Field>
-            <Field label="Current Sum Assured"><Input value={data.currentSA || policy?.currentSA} readOnly={true} /></Field>
-            <Field label="Cash Value"><Input value={data.cashValue || policy?.cashValue} readOnly={true} /></Field>
-            <Field label="Maturity Value"><Input value={data.maturityValue || policy?.maturityValue} readOnly={true} /></Field>
-            <Field label="Outstanding Loan"><Input value={data.outstandingLoan} onChange={e => update({ outstandingLoan: e.target.value })} /></Field>
-            <Field label="Excess Premium"><Input value={data.excessPremium} onChange={e => update({ excessPremium: e.target.value })} /></Field>
-            <Field label="UW Decision"><Input value={data.uwDecision || policy?.uwDecision} readOnly={true} /></Field>
-            <Field label="UW Decision Date"><Input value={data.uwDecisionDate || policy?.uwDecisionDate} readOnly={true} /></Field>
-            <Field label="Advisor Code"><Input value={data.advisorCode || policy?.advisorCode} readOnly={true} /></Field>
-            <Field label="Advisor Status"><Input value={data.advisorStatus || policy?.advisorStatus} readOnly={true} /></Field>
-            <Field label="Policy Age (auto)" required><Input value={data.policyAge || policyAgeInfo.policyAgeLabel || ''} readOnly placeholder="Set Date of Death in Intimation" /></Field>
-            <Field label="Name Change Declared" required><Select value={data.nameChangeDecl || ''} onChange={e => update({ nameChangeDecl: e.target.value })} options={['Yes', 'No']} /></Field>
-            <Field label="E-Kit Printed"><Select value={data.ekitPrinted || (policy?.ekitPrinted)} onChange={e => update({ ekitPrinted: e.target.value })} options={['Yes', 'No']} /></Field>
-            <Field label="Assignment"><Input value={data.assignment || policy?.assignment} readOnly={true} /></Field>
-            <Field label="Sales Channel"><Input value={data.salesChannel || policy?.salesChannel} readOnly={true} /></Field>
+            <CfgField name="appNo" label="Application No"><Input value={data.appNo} onChange={e => update({ appNo: e.target.value })} /></CfgField>
+            <CfgField name="productName" label="Product Name"><Input value={data.productName || policy?.productName} readOnly={true} /></CfgField>
+            <CfgField name="productCode" label="Product Code"><Input value={data.productCode || policy?.productCode} readOnly={true} /></CfgField>
+            <CfgField name="cdfDate" label="CDF Signature Date"><Input type="date" value={data.cdfDate} onChange={e => update({ cdfDate: e.target.value })} /></CfgField>
+            <CfgField name="issueDate" label="Issue Date"><Input type="date" value={data.issueDate || policy?.issueDate} readOnly={true} /></CfgField>
+            <CfgField name="riskCommencementDate" label="Risk Commencement Date"><Input type="date" value={data.riskCommencementDate || policy?.riskCommencementDate} readOnly={true} /></CfgField>
+            <CfgField name="paidToDate" label="Paid to Date"><Input type="date" value={data.paidToDate || policy?.paidToDate} readOnly={true} /></CfgField>
+            <CfgField name="premiumFrequency" label="Premium Frequency"><Input value={data.premiumFrequency || policy?.premiumFrequency} readOnly={true} /></CfgField>
+            <CfgField name="premiumStatus" label="Premium Status"><Input value={data.premiumStatus || policy?.premiumStatus} readOnly={true} /></CfgField>
+            <CfgField name="term" label="Policy Term (yrs)"><Input value={data.term || policy?.term} readOnly={true} /></CfgField>
+            <CfgField name="premPaidYrs" label="Premium Paid Years"><Input value={data.premPaidYrs || policy?.premPaidYrs} readOnly={true} /></CfgField>
+            <CfgField name="totalPremiumPaid" label="Total Premium Paid"><Input value={data.totalPremiumPaid || policy?.totalPremiumPaid} readOnly={true} /></CfgField>
+            <CfgField name="originalSA" label="Original Sum Assured"><Input value={data.originalSA || policy?.originalSA} readOnly={true} /></CfgField>
+            <CfgField name="currentSA" label="Current Sum Assured"><Input value={data.currentSA || policy?.currentSA} readOnly={true} /></CfgField>
+            <CfgField name="cashValue" label="Cash Value"><Input value={data.cashValue || policy?.cashValue} readOnly={true} /></CfgField>
+            <CfgField name="maturityValue" label="Maturity Value"><Input value={data.maturityValue || policy?.maturityValue} readOnly={true} /></CfgField>
+            <CfgField name="outstandingLoan" label="Outstanding Loan"><Input value={data.outstandingLoan} onChange={e => update({ outstandingLoan: e.target.value })} /></CfgField>
+            <CfgField name="excessPremium" label="Excess Premium"><Input value={data.excessPremium} onChange={e => update({ excessPremium: e.target.value })} /></CfgField>
+            <CfgField name="uwDecision" label="UW Decision"><Input value={data.uwDecision || policy?.uwDecision} readOnly={true} /></CfgField>
+            <CfgField name="uwDecisionDate" label="UW Decision Date"><Input value={data.uwDecisionDate || policy?.uwDecisionDate} readOnly={true} /></CfgField>
+            <CfgField name="advisorCode" label="Advisor Code"><Input value={data.advisorCode || policy?.advisorCode} readOnly={true} /></CfgField>
+            <CfgField name="advisorStatus" label="Advisor Status"><Input value={data.advisorStatus || policy?.advisorStatus} readOnly={true} /></CfgField>
+            <CfgField name="policyAge" label="Policy Age (auto)" required><Input value={data.policyAge || policyAgeInfo.policyAgeLabel || ''} readOnly placeholder="Set Date of Death in Intimation" /></CfgField>
+            <CfgField name="nameChangeDecl" label="Name Change Declared" required><Select value={data.nameChangeDecl || ''} onChange={e => update({ nameChangeDecl: e.target.value })} options={['Yes', 'No']} /></CfgField>
+            <CfgField name="ekitPrinted" label="E-Kit Printed"><Select value={data.ekitPrinted || (policy?.ekitPrinted)} onChange={e => update({ ekitPrinted: e.target.value })} options={['Yes', 'No']} /></CfgField>
+            <CfgField name="assignment" label="Assignment"><Input value={data.assignment || policy?.assignment} readOnly={true} /></CfgField>
+            <CfgField name="salesChannel" label="Sales Channel"><Input value={data.salesChannel || policy?.salesChannel} readOnly={true} /></CfgField>
           </Grid>
+          </FieldConfigContext.Provider>
           {policy?.riders?.length > 0 && (
             <div style={{ marginTop: '20px' }}>
               <div style={{ fontSize: '12px', fontWeight: 700, color: T.primary, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Rider Details</div>

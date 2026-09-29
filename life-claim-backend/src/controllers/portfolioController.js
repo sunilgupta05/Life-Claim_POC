@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const { getPortfolioFromDB } = require("../dataAccess/portfolioDao");
 
 const getPortfolio = async (req, res) => {
@@ -12,7 +13,7 @@ const getPortfolio = async (req, res) => {
     
     res.json({ portfolio });
   } catch (error) {
-    console.error("Error:", error.message);
+    logger.error("Error:", error.message);
     res.status(500).json({ error: "An error occurred while fetching portfolio" });
   }
 };

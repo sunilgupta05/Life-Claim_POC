@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig'); // Assuming you already have dbConfig set up
 const StatusHistory = require('../models/StatusHistory');
 const claimsService = require('../services/claimsService');
@@ -8,13 +9,13 @@ const notificationQueueService = require('../services/notificationQueueService')
 const claimSearchInDB = async (claimNumber) => {
   const query = 'SELECT * FROM claims_poc.claims WHERE CLAIM_NUMBER = ?';
   const [rows] = await db.execute(query, [claimNumber]);
-  //   console.log('DB query result:', rows); // Log the query result
+  //   logger.info('DB query result:', rows); // Log the query result
   return rows.length ? rows[0] : null;
 };
 
 const editAssessor = async (assessor, claimNumber, username) => {
   try {
-    console.log(assessor)
+    logger.info(assessor)
     const decisionVal = String(assessor.DECISION || assessor.decision || '').toLowerCase();
     const remarksVal = assessor.REMARKS || assessor.remarks || '';
     const claimRow = await claimSearchInDB(claimNumber);
@@ -87,7 +88,7 @@ const editAssessor = async (assessor, claimNumber, username) => {
         });
       }
     } catch (notifyErr) {
-      console.error(
+      logger.error(
         'NotificationQueue >> Error enqueueing assessor decision notification:',
         notifyErr?.message || notifyErr
       );
@@ -113,7 +114,7 @@ const editAssessor = async (assessor, claimNumber, username) => {
     }
 
   } catch (error) {
-    console.error('Error in editAssessor:', error.message);
+    logger.error('Error in editAssessor:', error.message);
     throw error;
   }
 };
@@ -122,7 +123,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
 
     let status = {}
     let role = "";
-    console.log(verifierSnake)
+    logger.info(verifierSnake)
     if (verifierSnake.STATUS == 'fail') {
       status = {
         "CLAIM_NUMBER": claimNumberSnake,
@@ -154,7 +155,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
     const role_change = await claimsService.changeRole(claimNumberSnake, role);
 
     const status_history = await StatusHistory.create(status)
-    console.log(claimNumberSnake)
+    logger.info(claimNumberSnake)
 
     // 🚀 Enqueue WhatsApp Notification for Payout Completed (RabbitMQ)
     if (status.STATUS === "Payout Completed") {
@@ -174,7 +175,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
             const approvedAmount = parseFloat(verifierSnake.TOTAL_NON_RISK_AMOUNT || 0) + parseFloat(verifierSnake.TOTAL_RISK_SA || 0);
             
             if (mobileNo && customerName) {
-              console.log(
+              logger.info(
                 `NotificationQueue >> Enqueueing payout completed WhatsApp notification for ${customerName} (${mobileNo})`
               );
               notificationQueueService.enqueueWhatsAppPayoutCompleted(
@@ -184,7 +185,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
                 approvedAmount.toFixed(2)
               );
             } else {
-              console.warn('NotificationQueue >> Payout notification skipped: Mobile number or Name missing', {
+              logger.warn('NotificationQueue >> Payout notification skipped: Mobile number or Name missing', {
                 mobileNo,
                 customerName,
               });
@@ -192,7 +193,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
           }
         }
       } catch (err) {
-        console.error(
+        logger.error(
           'NotificationQueue >> Error enqueueing payout completed notification:',
           err.message || err
         );
@@ -234,7 +235,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
         }
       }
     } catch (notifyErr) {
-      console.error(
+      logger.error(
         'NotificationQueue >> Error enqueueing verifier decision notification:',
         notifyErr?.message || notifyErr
       );
@@ -260,7 +261,7 @@ const editVerifier = async (verifierSnake, claimNumberSnake, username) => {
     }
 
   } catch (error) {
-    console.error('Error in editVerifier:', error.message);
+    logger.error('Error in editVerifier:', error.message);
     throw error;
   }
 };

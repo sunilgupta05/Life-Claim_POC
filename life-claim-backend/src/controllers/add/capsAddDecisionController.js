@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddDecisionDao = require('../../dataAccess/add/capsAddDecisionDao');
 
 const getDecisionMasterData = async (req, res) => {
@@ -8,7 +9,7 @@ const getDecisionMasterData = async (req, res) => {
             data: data
         });
     } catch (error) {
-        console.error('Error in getDecisionMasterData Controller:', error);
+        logger.error('Error in getDecisionMasterData Controller:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error while fetching decision master data'
@@ -38,7 +39,7 @@ const saveDecisionController = async (req, res) => {
         if (error.statusCode === 409 || error.statusCode === 404) {
             return res.status(error.statusCode).json({ success: false, message: error.message });
         }
-        console.error('Error in saveDecisionController:', error);
+        logger.error('Error in saveDecisionController:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error while saving decision'

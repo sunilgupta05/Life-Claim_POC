@@ -1,6 +1,7 @@
+const logger = require('../util/logger');
 const getAmount = async (obj) => {
   try {
-    console.log("calc amount data:",obj)
+    logger.info("calc amount data:",obj)
     
     var fundTempVal = obj.fund || 0;
     var baseTempVal = obj.base || 0;
@@ -303,7 +304,7 @@ const getAmount = async (obj) => {
     }
 
   } catch (error) {
-    console.log(error)
+    logger.info(error)
     throw new Error('Error in service');
   }
 };

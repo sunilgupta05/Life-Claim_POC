@@ -9,7 +9,8 @@
 // that reproduce the current Dark Horse Digital branding exactly. The app never
 // depends on this feature being provisioned.
 
-const { getActiveOrgProfile } = require('../dataAccess/orgProfileDao');
+const logger = require('../util/logger');
+const { getActiveOrgProfile, updateActiveOrgProfile } = require('../dataAccess/orgProfileDao');
 
 // Mirror of life-claim-frontend/src/config/companyBrand.js — the safety net.
 const DEFAULTS = Object.freeze({
@@ -77,13 +78,13 @@ async function load({ silent = false } = {}) {
     if (row) {
       cache = mapRow(row);
       if (!silent) {
-        console.log(`[orgProfile] loaded active org "${cache.name}" (${cache.code}) from DB.`);
+        logger.info(`[orgProfile] loaded active org "${cache.name}" (${cache.code}) from DB.`);
       }
       return cache;
     }
     cache = { ...DEFAULTS, source: 'default' };
     if (!silent) {
-      console.log('[orgProfile] org_profile table empty — using built-in defaults.');
+      logger.info('[orgProfile] org_profile table empty — using built-in defaults.');
     }
   } catch (err) {
     cache = { ...DEFAULTS, source: 'default' };
@@ -92,7 +93,7 @@ async function load({ silent = false } = {}) {
         err && err.code === 'ORG_PROFILE_TABLE_MISSING'
           ? 'org_profile table not migrated yet (run npm run migrate)'
           : (err && err.message) || 'unknown error';
-      console.warn(`[orgProfile] using built-in defaults — ${why}.`);
+      logger.warn(`[orgProfile] using built-in defaults — ${why}.`);
     }
   }
   return cache;
@@ -108,4 +109,16 @@ function clearCache() {
   cache = null;
 }
 
-module.exports = { load, getOrgProfile, clearCache, DEFAULTS };
+/**
+ * Persist branding/profile edits (roadmap 2.1) then hot-reload the cache so the
+ * change takes effect immediately (the public GET /api/org-profile reflects it,
+ * and the frontend re-hydrates on next load). `fields` uses the same camelCase
+ * shape returned by getOrgProfile().
+ */
+async function save(fields) {
+  await updateActiveOrgProfile(fields);
+  clearCache();
+  return load({ silent: true });
+}
+
+module.exports = { load, getOrgProfile, clearCache, save, DEFAULTS };

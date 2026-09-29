@@ -132,8 +132,10 @@ export function SectionHeader({ title, subtitle, open, onToggle, done }) {
 }
 
 export function Grid({ cols=2, children }) {
+  // `reg-grid` + data-cols let responsive CSS (index.css) collapse the inline
+  // column count on small/medium screens (roadmap 4.7) without changing desktop.
   return (
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:'14px' }}>
+    <div className="reg-grid" data-cols={cols} style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:'14px' }}>
       {children}
     </div>
   )

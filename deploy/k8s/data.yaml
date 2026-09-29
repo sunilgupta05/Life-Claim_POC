@@ -1,0 +1,132 @@
+# Life Claims — in-cluster data tier (roadmap 4.2): MySQL + RabbitMQ + Redis.
+# Single-replica, PVC-backed — fine for a POC / single-cluster install. For
+# production, prefer managed data services (RDS/CloudSQL/etc.) and DELETE this
+# file from the kustomization, pointing the ConfigMap/Secret at the managed hosts.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data
+  namespace: life-claim
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: life-claim
+  labels: { app: mysql }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }        # single writer on one PVC
+  selector: { matchLabels: { app: mysql } }
+  template:
+    metadata:
+      labels: { app: mysql }
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          args: ["--default-authentication-plugin=mysql_native_password"]
+          ports: [ { containerPort: 3306 } ]
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom: { configMapKeyRef: { name: life-claim-config, key: DB_DATABASE } }
+            - name: MYSQL_USER
+              valueFrom: { configMapKeyRef: { name: life-claim-config, key: DB_USER } }
+            - name: MYSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: life-claim-secrets, key: DB_PASSWORD } }
+            - name: MYSQL_ROOT_PASSWORD          # POC: reuse app pw; use a distinct one in prod
+              valueFrom: { secretKeyRef: { name: life-claim-secrets, key: DB_PASSWORD } }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/mysql }
+          readinessProbe:
+            exec: { command: ["sh","-c","mysqladmin ping -h 127.0.0.1 -p$MYSQL_ROOT_PASSWORD"] }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "150m", memory: "384Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: mysql-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: life-claim
+spec:
+  selector: { app: mysql }
+  ports: [ { port: 3306, targetPort: 3306 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: life-claim
+  labels: { app: rabbitmq }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: rabbitmq } }
+  template:
+    metadata:
+      labels: { app: rabbitmq }
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - { containerPort: 5672 }
+            - { containerPort: 15672 }
+          readinessProbe:
+            exec: { command: ["rabbitmq-diagnostics","-q","ping"] }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: life-claim
+spec:
+  selector: { app: rabbitmq }
+  ports:
+    - { name: amqp, port: 5672, targetPort: 5672 }
+    - { name: mgmt, port: 15672, targetPort: 15672 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: life-claim
+  labels: { app: redis }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: redis } }
+  template:
+    metadata:
+      labels: { app: redis }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["redis-server", "--save", "60", "1"]
+          ports: [ { containerPort: 6379 } ]
+          resources:
+            requests: { cpu: "25m", memory: "32Mi" }
+            limits: { cpu: "250m", memory: "128Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: life-claim
+spec:
+  selector: { app: redis }
+  ports: [ { port: 6379, targetPort: 6379 } ]

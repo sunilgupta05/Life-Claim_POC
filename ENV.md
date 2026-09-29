@@ -56,6 +56,80 @@ local JWT.
 
 See **`docs/INTEGRATIONS.md`** for Keycloak, MySQL, Transaction API, Alfresco, WhatsApp, RabbitMQ, and worker checklist. Admin overview UI shows a short dependency table.
 
+### Integration resilience (roadmap 3.1)
+
+Every outbound integration (Transaction API, WhatsApp, Alfresco/DMS, RabbitMQ, rules engine) is fronted by a shared wrapper — **timeout + retry/backoff + circuit breaker** (`src/util/resilience.js`, using `opossum`). A dead dependency now **fails fast** instead of hanging a request/worker, and repeated failures trip the breaker until it recovers. Happy-path behaviour is unchanged.
+
+Config keys are read via the config service (**DB → `.env` → default**), so they hot-reload without a restart. Global defaults apply to all integrations; add a `<NAME>_` prefix to override one (names: `TRANSACTION_API`, `WHATSAPP`, `ALFRESCO`, `RABBITMQ`, `RULES_ENGINE`).
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `INTEGRATION_TIMEOUT_MS` | `10000` | Per-call timeout (ms) before the call is aborted. |
+| `INTEGRATION_RETRIES` | `2` | Retry attempts on **transient** failures (network/timeout/5xx). 4xx and open-breaker are never retried. |
+| `INTEGRATION_RETRY_BASE_MS` | `300` | Exponential-backoff base: `300, 600, 1200…`. |
+| `INTEGRATION_BREAKER_ERROR_PCT` | `50` | Failure % (over the rolling window) that opens the breaker. |
+| `INTEGRATION_BREAKER_RESET_MS` | `30000` | How long the breaker stays open before probing (half-open). |
+| `INTEGRATION_BREAKER_VOLUME` | `5` | Minimum calls in the window before the breaker can open. |
+
+Per-integration override examples: `TRANSACTION_API_TIMEOUT_MS`, `WHATSAPP_TIMEOUT_MS`, `ALFRESCO_TIMEOUT_MS` (default `15000`), `RABBITMQ_TIMEOUT_MS`, `RULES_ENGINE_TIMEOUT_MS`. The Alfresco document **upload** POST runs with retries disabled (it streams a body / creates a resource — not safe to replay).
+
+### Integration health & IT Admin console (roadmap 3.2 / 3.5)
+
+- **Health probes** (public, no auth, before the rate limiter): `GET /api/health` (liveness), `GET /api/health/ready` (DB + config readiness). For load balancers / uptime checks.
+- **Integration dashboard** (superuser): `GET /api/health/integrations` — per-integration endpoint + circuit-breaker state/stats. Frontend screen: **Integration Health** (`/superuser/health`), auto-refreshing.
+- **System Settings** (superuser): `GET/PUT/DELETE /api/settings` — a curated, grouped view over the config service for **integration URLs, timeouts/resilience and the log level**. Frontend screen: **System Settings** (`/superuser/settings`). Edits hot-reload immediately (no restart). Editable URL keys: `TXN_API_BASE_URL`, `DOCUMENT_VIEWER_IP`, `WHATSAPP_API_URL`, `RABBITMQ_URL`, `RULES_ENGINE_URL`, `KEYCLOAK_URL`. Both screens are registered as toggleable modules by migration `0011`.
+
+### Correlation IDs & centralized errors (roadmap 3.3)
+
+Every request gets a correlation id (honouring an inbound `X-Request-Id` / `X-Correlation-Id`), echoed back in the `X-Request-Id` response header and stamped on every log line for that request. Errors flow through one handler returning a stable shape `{ message, code, requestId }`; 5xx internals are hidden unless `EXPOSE_ERROR_DETAIL=true`. Unknown `/api/*` routes return a JSON 404.
+
+### Logging (roadmap 3.4)
+
+Centralized logger (`src/util/logger.js`, winston) replaces scattered `console.*`. Levels: `fatal > error > warn > info > http > debug > trace`. Logs rotate by size/time (no more unbounded `application.log`). `LOG_LEVEL` is also editable live from the IT Admin console.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `LOG_LEVEL` | `info` (prod) / `debug` (dev) | Minimum severity written. Editable at runtime. |
+| `LOG_DIR` | `life-claim-backend/logs` | Directory for rotated log files. |
+| `LOG_TO_FILE` | `true` | Set `false` to log to console only (e.g. tests). |
+| `LOG_MAX_SIZE` | `20m` | Rotate a file when it reaches this size. |
+| `LOG_MAX_FILES` | `14d` | Retention (age like `14d`, or a file count). |
+| `LOG_DATE_PATTERN` | `YYYY-MM-DD` | Rotation period. |
+| `LOG_ZIP` | `true` | Gzip rotated files. |
+| `LOG_HTTP_HOST` | *(unset)* | Optional: forward logs to an ELK/Loki/HTTP collector (`LOG_HTTP_PORT`, `LOG_HTTP_PATH`, `LOG_HTTP_SSL`). |
+
+### RabbitMQ hardening (roadmap 3.6)
+
+Queued notifications are now **reliable** rather than best-effort. The queue layer (`src/queues/rabbitmq.js`) uses **publisher confirms** (a publish resolves `true` only once the broker persists the message) and a **retry + dead-letter** topology: for a base queue `q` it also declares `q.retry` (a TTL holding queue that dead-letters back to `q` after a backoff) and `q.dlq` (a parking lot). A failed handler is retried up to `RABBITMQ_MAX_RETRIES` (tracked in an `x-retry-count` header); once exhausted the message is parked on `q.dlq` with error metadata — **never silently dropped**. The main queue is declared with no custom args, so it stays compatible with any existing `notifications` queue.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `RABBITMQ_MAX_RETRIES` | `3` | Max handler attempts before dead-lettering. |
+| `RABBITMQ_RETRY_DELAY_MS` | `10000` | Backoff (TTL) a message waits in `q.retry` before re-delivery. |
+| `RABBITMQ_PREFETCH` | `10` | Unacked messages a consumer holds at once. |
+| `RABBITMQ_TIMEOUT_MS` | `10000` | Broker connect timeout (also 3.1). |
+
+Inspect `notifications.dlq` in the RabbitMQ management UI to triage messages that failed all retries.
+
+### Service exposure & segmentation (roadmap 3.7)
+
+Full internal/external service matrix and segmentation guidance: **`docs/SERVICE_EXPOSURE.md`**. Only the **Backend API** + **Keycloak** should be internet-facing; MySQL, RabbitMQ, Alfresco, the Transaction API, WhatsApp, Redis and the rules engine are backend-only and belong on a private network. A reusable internal-only guard (`middleware/requireInternal.js`) and a boot-time **exposure self-audit** (`util/exposureAudit.js`, logs findings) are included.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `INTERNAL_ALLOWED_CIDRS` | loopback + RFC-1918 | Comma-separated CIDRs treated as internal by `requireInternal`. |
+| `INTERNAL_API_KEY` | *(unset)* | Shared secret accepted in `X-Internal-Api-Key` for internal-only endpoints. |
+
+### Production hardening (roadmap 4.x)
+
+Full guides: **`docs/OBSERVABILITY.md`** (4.3), **`docs/SECRETS.md`** (4.5), **`docs/SECURITY_REVIEW.md`** (4.6), **`docs/RUNBOOK.md`** (4.9), **`docs/PWA_RESPONSIVE.md`** (4.7).
+
+- **API docs (4.4):** Swagger UI at `/api/docs`, spec at `/api/docs/openapi.json`. `API_DOCS_ENABLED` (default: on in dev, **off in prod**).
+- **Metrics (4.3):** Prometheus at `/api/metrics` (**internal-only** via `requireInternal`). Optional tracing: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` (needs the OTEL SDK installed).
+- **Secrets (4.5):** `SECRETS_PROVIDER` = `env` (default) / `file` (`SECRETS_DIR` or `SECRETS_FILE`) / `vault` (`VAULT_ADDR`,`VAULT_TOKEN`,`VAULT_SECRET_PATH`) / `aws` (`AWS_REGION`,`AWS_SECRET_ID`). All fall back to `.env`.
+- **Retention (4.6):** `RETENTION_ENABLED` (default `false`), `RETENTION_DRY_RUN` (default `true`), `DATA_RETENTION_DAYS` (365), `AUDIT_LOG_RETENTION_DAYS`, `RETENTION_INTERVAL_MS`.
+- **Docker (4.2):** `docker compose up -d --build` (root `docker-compose.yml`); compose vars in root `.env` (see `.env.example`), app config in `life-claim-backend/.env`.
+
 ## Section L (legacy / dormant)
 
 See **`docs/LEGACY_ROUTES.md`**. v2 has no v1 `App.js` comment block; unrouted files: `InwardMail.jsx`, `HospitalContacts.jsx`. Registration is one wizard + one workspace URL.
@@ -90,6 +164,15 @@ cd life-claim-frontend && npm run build
 ## Google reCAPTCHA domains
 
 In [reCAPTCHA Admin](https://www.google.com/recaptcha/admin), add: `localhost`, `127.0.0.1`, `192.168.60.62`.
+
+## Branding (roadmap 2.1)
+
+Per-deployment name, colours and logo are **config, not code** — stored in `org_profile` and edited by
+a superuser at **`/superuser/branding`**. Colours apply at runtime via CSS variables
+(`src/config/brandTheme.js`); the built-in `companyBrand.js` values are only the fallback. Logo uploads
+(reusing the multer path) save to `life-claim-backend/uploads/branding/` and are served at `/branding/…`
+(gitignore the uploads folder in prod backups if needed). API: public `GET /api/org-profile`;
+superuser `PUT /api/org-profile` + `POST /api/org-profile/logo`.
 
 ## New machine setup
 

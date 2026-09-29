@@ -1,9 +1,10 @@
 // roleDao.js (dataAccess/roleDao.js)
 
+const logger = require('../util/logger');
 const Role = require("../models/Role");
 
 const getAllRoles = async () => {
-  console.log("breakpoint ::");
+  logger.info("breakpoint ::");
   return Role.findAll({
     attributes: ["id", "role_name"],
   });
@@ -18,7 +19,7 @@ const createRole = async (roleName) => {
     const role = await Role.create({ role_name: roleName.role_name });
     return role;
   } catch (error) {
-    console.error("Error creating role:", error);
+    logger.error("Error creating role:", error);
     throw error; // Rethrow the error after logging it
   }
 };

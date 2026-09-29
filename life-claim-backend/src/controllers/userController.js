@@ -62,8 +62,8 @@ exports.updateUser = async (req, res, next) => {
   try {
     const userId = req.params.id;
     const updatedUser = req.body;
-    console.info("User Id: ",userId);
-    console.info("User Body: ", updatedUser);
+    logger.info("User Id: ",userId);
+    logger.info("User Body: ", updatedUser);
 
     // This is for status Update ie. Active and Inactive & UPDATE Profile
     await userService.updateUser(userId, updatedUser);

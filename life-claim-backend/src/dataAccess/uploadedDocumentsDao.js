@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const UploadedDocument = require('../models/UploadedDocuments')
 
 const UploadedDocMatchList = async(claimId, documentType) => {
@@ -7,7 +8,7 @@ const UploadedDocMatchList = async(claimId, documentType) => {
             //documentType: documentType
         }
     })
-    console.log('UploadedDocumentsDao.js  docvalue >>:<<',claimId,  docvalue)
+    logger.info('UploadedDocumentsDao.js  docvalue >>:<<',claimId,  docvalue)
     return docvalue;
 }
 
@@ -40,7 +41,7 @@ const AddUploadedDocument = async(claimNumber, fileName, documentType, alfrescoR
         AlfrescoFileId: nodeId,
         uploadedOn: new Date
     })
-    console.log('UploadedDocumentDao.js >> AddUploadedDocument  > added: ', addNewRow.toJSON());
+    logger.info('UploadedDocumentDao.js >> AddUploadedDocument  > added: ', addNewRow.toJSON());
 }
 
 

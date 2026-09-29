@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const con = require('../config/dbConfig');
 const appConfig = require('../config/configService');
 
@@ -14,7 +15,7 @@ exports.getAllAttachments = async (req, res) => {
             res.status(404).send({ msg: 'No attachments found!' });
         }
     } catch (err) {
-        console.error("Error during query execution:", err);
+        logger.error("Error during query execution:", err);
         res.status(500).json({
             message: 'Internal server error',
             ...(exposeErrorDetails ? { detail: err.message } : {}),
@@ -29,11 +30,11 @@ exports.patchAttachments = async (req, res) => {
         for (const file_id of Object.keys(req.body || {})) {
             const query = `UPDATE attachment SET document_type = ? WHERE inward_id = ?`;
             await con.query(query, [req.body[file_id], file_id]);
-            console.log('attachmentsController >> patchAttachments row updated');
+            logger.info('attachmentsController >> patchAttachments row updated');
         }
         res.status(200).send({ msg: 'Data updated successfully!' });
     } catch (err) {
-        console.error("Error during updating attachments:", err);
+        logger.error("Error during updating attachments:", err);
         res.status(500).json({
             message: 'Internal server error',
             ...(exposeErrorDetails ? { detail: err.message } : {}),

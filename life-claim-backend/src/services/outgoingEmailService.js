@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 
@@ -14,7 +15,7 @@ const getTransporter = () => {
   const pass = process.env.EMAIL_PASS;
 
   if (!user || !pass) {
-    console.warn('OutgoingEmailService >> EMAIL_ID or EMAIL_PASS not configured; email sending disabled');
+    logger.warn('OutgoingEmailService >> EMAIL_ID or EMAIL_PASS not configured; email sending disabled');
     return null;
   }
 
@@ -32,7 +33,7 @@ const getTransporter = () => {
 const sendEmail = async ({ to, subject, text, html }) => {
   const tx = getTransporter();
   if (!tx) {
-    console.warn('OutgoingEmailService >> Transporter not available, skipping email send');
+    logger.warn('OutgoingEmailService >> Transporter not available, skipping email send');
     return { success: false, error: 'Email transporter not configured' };
   }
 
@@ -44,10 +45,10 @@ const sendEmail = async ({ to, subject, text, html }) => {
       text,
       html,
     });
-    console.log('OutgoingEmailService >> Email sent:', info.messageId);
+    logger.info('OutgoingEmailService >> Email sent:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (err) {
-    console.error('OutgoingEmailService >> Error sending email:', err.message || err);
+    logger.error('OutgoingEmailService >> Error sending email:', err.message || err);
     return { success: false, error: err.message || String(err) };
   }
 };

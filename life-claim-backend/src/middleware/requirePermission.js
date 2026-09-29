@@ -13,6 +13,7 @@
 // It reads the caller's roles/username from req.user OR (fallback) req.kauth, so
 // it works after either auth middleware. Superuser always passes.
 
+const logger = require('../util/logger');
 const rbacService = require('../services/rbacService');
 const { hasSuperUserAccess } = require('../util/superuserRoles');
 const { extractKeycloakRoles, extractKeycloakUsername } = require('../util/keycloakRoles');
@@ -48,7 +49,7 @@ function requirePermission(...permissionKeys) {
 
     const allowed = keys.some((key) => rbacService.hasPermission(roles, key));
     if (!allowed) {
-      console.warn(
+      logger.warn(
         `Permission denied for user ${username}. Required: [${keys}], User roles: [${roles}]`
       );
       return res.status(403).json({

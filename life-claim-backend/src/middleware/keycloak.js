@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const crypto = require('crypto');
 const appConfig = require('../config/configService');
 const session = require('express-session');
@@ -14,7 +15,7 @@ const SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000;
 // across multiple instances). Falls back to the in-memory store for local dev when unset.
 function buildSessionStore() {
   if (!appConfig.get('REDIS_URL')) {
-    console.warn(
+    logger.warn(
       '[security] REDIS_URL is not set — using in-memory session store (lost on restart, ' +
         'not safe for multiple instances). Set REDIS_URL in production.'
     );
@@ -29,13 +30,13 @@ function buildSessionStore() {
     const connectRedis = require('connect-redis');
     const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
     const redisClient = createClient({ url: appConfig.get('REDIS_URL') });
-    redisClient.on('error', (err) => console.error('[security] Redis session store error:', err.message));
+    redisClient.on('error', (err) => logger.error('[security] Redis session store error:', err.message));
     redisClient.connect().catch((err) => {
-      console.error('[security] Failed to connect to Redis for sessions:', err.message);
+      logger.error('[security] Failed to connect to Redis for sessions:', err.message);
     });
     return new RedisStore({ client: redisClient, prefix: 'sess:' });
   } catch (err) {
-    console.error(
+    logger.error(
       '[security] REDIS_URL is set but redis/connect-redis failed to initialize; falling back to in-memory store:',
       err.message
     );
@@ -52,7 +53,7 @@ const sessionSecret = (() => {
     return process.env.SESSION_SECRET;
   }
   if (appConfig.get('NODE_ENV') === 'production') {
-    console.error(
+    logger.error(
       '[security] SESSION_SECRET is not set — using ephemeral per-process secret; set SESSION_SECRET in .env for stable sessions across restarts.'
     );
     return crypto.randomBytes(32).toString('hex');

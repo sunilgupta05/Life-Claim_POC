@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig'); // Assuming you already have dbConfig set up
 
 const historySearchInDB = async (policyNumber, claimNumber) => {
@@ -17,7 +18,7 @@ const historySearchInDB = async (policyNumber, claimNumber) => {
   }
 
   const [rows] = await db.execute(query, [searchParam]);
-  // console.log(rows.length)
+  // logger.info(rows.length)
   if (rows.length === 0) {
     return { message: "No records found for the provided policy or claim number." };
 }

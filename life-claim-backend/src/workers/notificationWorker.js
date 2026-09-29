@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const path = require('path');
 const dotenv = require('dotenv');
 
@@ -14,14 +15,14 @@ const NOTIFICATIONS_QUEUE = 'notifications';
 
 const handleNotificationMessage = async (msg) => {
   if (!msg || !msg.type) {
-    console.warn('NotificationWorker >> Received message without type, skipping', msg);
+    logger.warn('NotificationWorker >> Received message without type, skipping', msg);
     return;
   }
 
   switch (msg.type) {
     case 'whatsapp-claim-registration': {
       const { mobileNo, name, claimNo } = msg;
-      console.log(
+      logger.info(
         `NotificationWorker >> Processing WhatsApp claim registration for ${name} (${mobileNo}), claim ${claimNo}`
       );
       await whatsappService.sendClaimRegistrationNotification(mobileNo, name, claimNo);
@@ -30,7 +31,7 @@ const handleNotificationMessage = async (msg) => {
 
     case 'whatsapp-payout-completed': {
       const { mobileNo, name, claimNo, amount } = msg;
-      console.log(
+      logger.info(
         `NotificationWorker >> Processing WhatsApp payout completed for ${name} (${mobileNo}), claim ${claimNo}, amount ${amount}`
       );
       await whatsappService.sendPayoutCompletedNotification(mobileNo, name, claimNo, amount);
@@ -39,7 +40,7 @@ const handleNotificationMessage = async (msg) => {
 
     case 'email': {
       const { to, subject, text, html } = msg;
-      console.log(`NotificationWorker >> Processing email to ${to} with subject "${subject}"`);
+      logger.info(`NotificationWorker >> Processing email to ${to} with subject "${subject}"`);
       await sendEmail({ to, subject, text, html });
       break;
     }
@@ -51,7 +52,7 @@ const handleNotificationMessage = async (msg) => {
         'We will update you once the review is completed.';
       const subject = `Your claim ${claimId} has been assigned to an Assessor`;
 
-      console.log(
+      logger.info(
         'NotificationWorker >> Assessor assignment notification',
         'claimId',
         claimId,
@@ -81,7 +82,7 @@ const handleNotificationMessage = async (msg) => {
         `Your claim with ID ${claimId} has been assigned to a Verifier for further verification.`;
       const subject = `Your claim ${claimId} has been assigned to a Verifier`;
 
-      console.log(
+      logger.info(
         'NotificationWorker >> Verifier assignment notification',
         'claimId',
         claimId,
@@ -112,7 +113,7 @@ const handleNotificationMessage = async (msg) => {
         `Decision: ${decision}. Please check your dashboard for more details.`;
       const subject = `Assessor decision on your claim ${claimId}`;
 
-      console.log(
+      logger.info(
         'NotificationWorker >> Assessor decision notification',
         'claimId',
         claimId,
@@ -145,7 +146,7 @@ const handleNotificationMessage = async (msg) => {
         `Decision: ${decision}. Please check your dashboard for more details.`;
       const subject = `Verifier decision on your claim ${claimId}`;
 
-      console.log(
+      logger.info(
         'NotificationWorker >> Verifier decision notification',
         'claimId',
         claimId,
@@ -172,16 +173,16 @@ const handleNotificationMessage = async (msg) => {
     }
 
     default:
-      console.warn('NotificationWorker >> Unknown message type, skipping:', msg.type);
+      logger.warn('NotificationWorker >> Unknown message type, skipping:', msg.type);
   }
 };
 
 (async () => {
   try {
-    console.log('NotificationWorker >> Starting, connecting to RabbitMQ...');
+    logger.info('NotificationWorker >> Starting, connecting to RabbitMQ...');
     await consumeQueue(NOTIFICATIONS_QUEUE, handleNotificationMessage);
   } catch (err) {
-    console.error('NotificationWorker >> Fatal error, exiting:', err.message || err);
+    logger.error('NotificationWorker >> Fatal error, exiting:', err.message || err);
     process.exit(1);
   }
 })();

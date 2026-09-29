@@ -5,6 +5,7 @@
 // immediately (no restart). A dedicated admin UI is a later roadmap item — this
 // is the backend it will use. Mirrors the shape of configController.js.
 
+const logger = require('../util/logger');
 const rbacService = require('../services/rbacService');
 const { hasSuperUserAccess } = require('../util/superuserRoles');
 
@@ -17,7 +18,7 @@ function sendError(res, err, fallback) {
       message: 'rbac_* tables not found — run database migrations first (npm run migrate).',
     });
   }
-  console.error('[rbac] error:', err?.message);
+  logger.error('[rbac] error:', err?.message);
   return res.status(500).json({ message: fallback });
 }
 

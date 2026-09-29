@@ -1,9 +1,10 @@
+const logger = require('../util/logger');
 const claimSearchService = require('../services/claimSearchService');
 
 const getClaimSearch = async (req, res) => {
   try {
     const { claimNumber } = req.body;
-    console.log('Received claim number:', claimNumber); // Log the input
+    logger.info('Received claim number:', claimNumber); // Log the input
     if (!claimNumber) {
       return res.status(400).json({ message: 'claim number is required' });
     }
@@ -14,7 +15,7 @@ const getClaimSearch = async (req, res) => {
     }
      res.status(200).json(claim);
   } catch (error) {
-    // console.error('Error searching for policy:', error);
+    // logger.error('Error searching for policy:', error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };
@@ -24,18 +25,18 @@ const updateAssessor = async (req, res) => {
     const { assessor,claimNumber, username } = req.body;
 
     if (!assessor || !claimNumber) {
-      console.error('Missing assessor or claimNumber in request');
+      logger.error('Missing assessor or claimNumber in request');
       return res.status(400).json({ message: 'No fields to be edited or claimNumber missing' });
     }
 
     const data = await claimSearchService.updateAssessorFields(assessor,claimNumber,username);
-    console.log(data)
+    logger.info(data)
     if (!data) {
       return res.status(404).json({ message: 'no data to edit' });
     }
      res.status(200).json(data);
   } catch (error) {
-    // console.error('Error searching for policy:', error);
+    // logger.error('Error searching for policy:', error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };
@@ -43,7 +44,7 @@ const updateVerifier = async (req, res) => {
   try {
     
     const { verifier,claimNumber, username } = req.body;
-    console.log(verifier)
+    logger.info(verifier)
     if (!verifier || !claimNumber) {
       return res.status(400).json({ message: 'no fields to be editted' });
     }
@@ -54,7 +55,7 @@ const updateVerifier = async (req, res) => {
     }
      res.status(200).json(data);
   } catch (error) {
-    // console.error('Error searching for policy:', error);
+    // logger.error('Error searching for policy:', error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };

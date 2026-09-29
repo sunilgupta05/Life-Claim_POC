@@ -19,6 +19,9 @@ const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/rolesRoutes');
 const authRoutes = require('./routes/authRoutes');
 const orgProfileRoutes = require('./routes/orgProfileRoutes');
+const orgProfileAdminRoutes = require('./routes/orgProfileAdminRoutes');
+const formConfigRoutes = require('./routes/formConfigRoutes');
+const formConfigService = require('./services/formConfigService');
 const orgProfileService = require('./services/orgProfileService');
 const configRoutes = require('./routes/configRoutes');
 const configService = require('./config/configService');
@@ -72,12 +75,36 @@ const { closeAllStaleSessions } = require('./services/auditLogService');
 const { apiLimiter } = require('./middleware/rateLimiters');
 const { httpMethodFilter } = require('./middleware/httpMethodFilter');
 
+// Resilience / logging / IT admin (roadmap 3.2–3.5).
+const logger = require('./util/logger');
+const { requestId, accessLog } = require('./middleware/requestContextMiddleware');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const healthPublicRoutes = require('./routes/healthPublicRoutes');
+const healthAdminRoutes = require('./routes/healthAdminRoutes');
+const systemSettingsRoutes = require('./routes/systemSettingsRoutes');
+const docsRoutes = require('./routes/docsRoutes');
+const metricsRoutes = require('./routes/metricsRoutes');
+const { httpMetricsMiddleware } = require('./util/metrics');
+
 const app = express();
 app.disable('x-powered-by');
+
+// Correlation id + access logging (roadmap 3.3/3.4) — first, so every subsequent
+// log line (including rejections below) is stamped with the request id.
+app.use(requestId);
+app.use(accessLog);
+// Prometheus request metrics (roadmap 4.3): count + latency for every request.
+app.use(httpMetricsMiddleware);
+
 app.use(httpMethodFilter);
 if (appConfig.get('TRUST_PROXY') === 'true') {
   app.set('trust proxy', 1);
 }
+
+// API docs (roadmap 4.4) — mounted BEFORE the strict Helmet CSP so Swagger UI's
+// inline bootstrap script can run. Gated by API_DOCS_ENABLED (off in prod by
+// default). Serves Swagger UI at /api/docs and the raw spec at /api/docs/openapi.json.
+app.use('/api/docs', docsRoutes);
 const keycloak = getKeycloak();
 
 const isProduction = appConfig.get('NODE_ENV') === 'production';
@@ -126,7 +153,7 @@ const PROD_CORS_ORIGINS = [];
 const configuredOriginsRaw = parseCsv(appConfig.get('CORS_ALLOWED_ORIGINS'));
 const hasWildcardCorsOrigin = configuredOriginsRaw.includes('*');
 if (hasWildcardCorsOrigin) {
-  console.error('[security] CORS_ALLOWED_ORIGINS contains "*" which is not permitted; ignoring wildcard.');
+  logger.error('[security] CORS_ALLOWED_ORIGINS contains "*" which is not permitted; ignoring wildcard.');
 }
 const configuredOrigins = configuredOriginsRaw.filter((origin) => origin !== '*');
 const allowedOrigins = configuredOrigins.length
@@ -305,6 +332,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Public health probes (roadmap 3.2) — before the rate limiter + auth gate so
+// load balancers / uptime checks poll liveness & readiness without a token and
+// without consuming the rate-limit budget. No sensitive data is exposed here.
+app.use('/api/health', healthPublicRoutes);
+
+// Prometheus scrape endpoint (roadmap 4.3) — internal-only (requireInternal),
+// before the auth gate so the scraper needs no user token.
+app.use('/api/metrics', metricsRoutes);
+
 // Broad API rate limit (VAPT); set RATE_LIMIT_API_MAX=0 to disable
 app.use('/api', apiLimiter);
 
@@ -317,9 +353,13 @@ app.use(injectBearerFromSession);
 // Routes that don't need Keycloak protection
 app.use('/api/auth', authRoutes);
 
-// Active-organization profile (roadmap 0.2) — public so the login page can load
-// branding before authentication. Read-only; safe to expose. Preloaded below.
+// Active-organization profile (roadmap 0.2 read + 2.1 branding admin). GET is
+// public (login page needs branding); PUT/POST are superuser-gated inline.
 app.use('/api/org-profile', orgProfileRoutes);
+
+// Serve uploaded branding logos (roadmap 2.1). Public static assets — an <img>
+// src the frontend loads; no auth needed. Path matches orgProfileController.LOGO_DIR.
+app.use('/branding', express.static(path.join(__dirname, '..', 'uploads', 'branding')));
 
 // Keycloak must run before requireApiAuth and protected routes so Bearer tokens populate req.kauth.
 // Scope it to /api so non-API routes (/, static assets) never hit auth middleware.
@@ -398,38 +438,60 @@ app.use('/api/config', configRoutes);
 // existing route guard consumes it yet.
 app.use('/api/rbac', rbacRoutes);
 
-// Centralized error handler: prevent leaking stack traces/internal details to clients.
-// In non-production we still return a short detail string for debugging convenience.
-app.use((err, req, res, next) => {
-  const status = Number(err?.status) || 500;
-  const message = status >= 500 ? 'Internal server error' : (err?.message || 'Request failed');
-  const body = { message };
-  const exposeErrorDetail = appConfig.get('EXPOSE_ERROR_DETAIL') === 'true';
-  if (exposeErrorDetail && err?.message) {
-    body.detail = err.message;
-  }
-  console.error('Unhandled API error:', err?.message || err);
-  res.status(status).json(body);
+// Branding admin writes (roadmap 2.1) — same /api/org-profile path as the public
+// GET, but mounted AFTER the auth gate so req.user + the superuser bypass work.
+app.use('/api/org-profile', orgProfileAdminRoutes);
+
+// Per-form field overrides (roadmap 2.3). Reads authed, writes superuser.
+app.use('/api/form-config', formConfigRoutes);
+
+// Detailed integration health (roadmap 3.2) — per-integration breaker state +
+// endpoints. Superuser-gated (enforced inside the router).
+app.use('/api/health', healthAdminRoutes);
+
+// IT Administrator settings (roadmap 3.5) — curated runtime config (integration
+// URLs, timeouts, log level) over the 0.3 config service. Superuser-gated.
+app.use('/api/settings', systemSettingsRoutes);
+
+// Load secrets from the configured provider at startup (roadmap 4.5). Best-effort:
+// env provider is a no-op; file/vault/aws pre-warm the cache, falling back to .env.
+require('./config/secrets').init().catch((err) => {
+  logger.warn('[secrets] startup init skipped:', err?.message);
 });
 
 // Warm the centralized config cache at startup (roadmap 0.3). Best-effort:
 // if app_config isn't migrated yet, the service simply falls back to .env.
 configService.init().catch((err) => {
-  console.warn('[config] startup init skipped:', err?.message);
+  logger.warn('[config] startup init skipped:', err?.message);
 });
 
 // Preload the active-organization profile at startup (roadmap 0.2).
 // Best-effort: failures fall back to built-in defaults inside the service, so
 // this never blocks or breaks boot even if migration 0003 hasn't been run.
 orgProfileService.load().catch((err) => {
-  console.warn('[orgProfile] startup preload skipped:', err?.message);
+  logger.warn('[orgProfile] startup preload skipped:', err?.message);
 });
 
 // Warm the dynamic RBAC cache at startup (roadmap 1.1). Best-effort: if the
 // rbac_* tables aren't migrated yet, the service simply denies by default.
 rbacService.init().catch((err) => {
-  console.warn('[rbac] startup init skipped:', err?.message);
+  logger.warn('[rbac] startup init skipped:', err?.message);
 });
+
+// Warm the per-form field-override cache at startup (roadmap 2.3). Best-effort:
+// unmigrated ⇒ empty ⇒ forms use their base schemas.
+formConfigService.init().catch((err) => {
+  logger.warn('[formConfig] startup init skipped:', err?.message);
+});
+
+// Service-exposure / segmentation self-audit (roadmap 3.7). Logs a short review
+// of the trust boundary at startup; changes no behaviour. Deferred a tick so the
+// config cache has a chance to warm first.
+setTimeout(() => { require('./util/exposureAudit').logExposureAudit(); }, 2000).unref?.();
+
+// Data-retention scheduler (roadmap 4.6). No-op unless RETENTION_ENABLED=true;
+// dry-run by default. Purges rows past their retention window on a slow cadence.
+require('./services/dataRetentionService').startRetentionScheduler();
 
 // Periodic audit reconciliation:
 // close stale open sessions so timeout/abrupt-close sessions are eventually marked logged out.
@@ -438,7 +500,7 @@ setInterval(async () => {
   try {
     await closeAllStaleSessions();
   } catch (error) {
-    console.error('Audit reconciliation error:', error.message);
+    logger.error('Audit reconciliation error:', error.message);
   }
 }, AUDIT_RECONCILE_MS);
 
@@ -475,9 +537,9 @@ if (ENABLE_TEST_ROUTES) {
 // const syncDatabase = async () => {
 //   try {
 //     await sequelize.sync(); // Creates the tables if they don't exist
-//     console.log('Database synced successfully.');
+//     logger.info('Database synced successfully.');
 //   } catch (error) {
-//     console.error('Error syncing database:', error);
+//     logger.error('Error syncing database:', error);
 //   }
 // };
 
@@ -490,6 +552,10 @@ if (ENABLE_TEST_ROUTES) {
 
 // Define routes
 //app.use('/auth/auth', authRoutes);
+
+// Unknown /api routes return a JSON 404 (roadmap 3.3) instead of falling through
+// to the SPA catch-all below. Non-API paths pass through to the SPA handler.
+app.use(notFoundHandler);
 
 // Deployment mode: backend serves built frontend (SPA support).
 const frontendBuildPath = appConfig.get('FRONTEND_BUILD_PATH')
@@ -512,5 +578,10 @@ if (fs.existsSync(frontendBuildPath)) {
     });
   });
 }
+
+// Centralized error handler (roadmap 3.3) — MUST be the last middleware. Turns any
+// thrown/next(err) error into a consistent { message, code, requestId } response
+// and one correlated log line; hides internals for 5xx.
+app.use(errorHandler);
 
 module.exports = app;

@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const { checkForExclusionRule } = require('../../services/add/exclusionRulesService');
 const appConfig = require('../../config/configService');
 const { upsertAssessorPoolCase } = require('../../dataAccess/add/capsAssessorPoolCasesDao');
@@ -35,7 +36,7 @@ const applyExclusionRulesToCase = async (req, res, next) => {
             }
         });
     } catch (error) {
-        console.error('Error in applyExclusionRulesToCase:', error);
+        logger.error('Error in applyExclusionRulesToCase:', error);
         internalError(res, error);
     }
 };
@@ -63,7 +64,7 @@ const applyExclusionRulesToMultipleCases = async (req, res, next) => {
                 await upsertAssessorPoolCase(caseId, exclusionResult, batchId || null);
                 results.push({ caseId, exclusionResult });
             } catch (error) {
-                console.error(`Error processing case ${caseId}:`, error);
+                logger.error(`Error processing case ${caseId}:`, error);
                 errors.push({
                     caseId,
                     error: exposeErrorDetails ? (error?.message || 'Processing failed') : 'Processing failed',
@@ -80,7 +81,7 @@ const applyExclusionRulesToMultipleCases = async (req, res, next) => {
             }
         });
     } catch (error) {
-        console.error('Error in applyExclusionRulesToMultipleCases:', error);
+        logger.error('Error in applyExclusionRulesToMultipleCases:', error);
         internalError(res, error);
     }
 };

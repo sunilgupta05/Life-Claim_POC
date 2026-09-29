@@ -1,0 +1,55 @@
+# Life Claims alert rules (roadmap 4.3). Evaluated by Prometheus; routed by Alertmanager.
+groups:
+  - name: life-claim
+    rules:
+      - alert: BackendDown
+        expr: up{job="life-claim-backend"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Life Claims backend is down"
+          description: "No successful scrape of {{ $labels.instance }} for 2m."
+
+      - alert: IntegrationBreakerOpen
+        expr: integration_breaker_state > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.integration }}"
+          description: "{{ $labels.integration }} has been failing; calls are failing fast."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "5xx error rate > 5%"
+          description: "Backend 5xx ratio {{ $value | humanizePercentage }} over 5m."
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 request latency > 2s"
+          description: "p95 latency is {{ $value }}s over 10m."
+
+      - alert: ReadinessFailing
+        expr: probe_success{job="life-claim-ready"} == 0
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "Readiness probe failing (DB/config)"
+          description: "Configure a blackbox probe against /api/health/ready to enable this."
+
+      - alert: EventLoopLagHigh
+        expr: nodejs_eventloop_lag_seconds > 0.2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Node event-loop lag high"
+          description: "Event-loop lag {{ $value }}s — backend may be CPU-saturated."

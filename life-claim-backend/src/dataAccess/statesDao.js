@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig');
 
 // Function to fetch all countries from the database
@@ -10,7 +11,7 @@ const getAllStatesFromDB = async () => {
       // } else {
       //     res.status(404).send({ msg: 'No results found!' });
       // }
-    //console.log(rows)
+    //logger.info(rows)
     return rows;
   } catch (error) {
     throw new Error('Database error: ' + error.message);

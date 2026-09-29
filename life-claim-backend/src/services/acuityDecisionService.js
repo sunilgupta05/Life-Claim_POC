@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const pool = require('../config/dbConfig');
 
 const FLAGGED = 'FLAGGED';
@@ -71,7 +72,7 @@ const evaluateAcuity = async ({ claimantDetails = [], payeeDetails = [] }) => {
     );
     watchlist = rows || [];
   } catch (err) {
-    console.warn('acuityDecisionService >> watchlist unavailable:', err.message);
+    logger.warn('acuityDecisionService >> watchlist unavailable:', err.message);
     return {
       claimantAcuityDecision: NOT_FLAGGED,
       payeeAcuityDecision: NOT_FLAGGED,

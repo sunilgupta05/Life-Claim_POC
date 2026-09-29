@@ -1,5 +1,6 @@
 // backend/middleware/authorize.js
 
+const logger = require('../util/logger');
 const { hasSuperUserRole, hasSuperUserAccess } = require('../util/superuserRoles');
 
 /**
@@ -24,7 +25,7 @@ const authorize = (...allowedRoles) => {
       (needsSuperUser && hasSuperUserAccess(userRoles, username));
 
     if (!hasPermission) {
-      console.warn(`Access denied for user ${username}. Required roles: [${allowedRoles}], User roles: [${userRoles}]`);
+      logger.warn(`Access denied for user ${username}. Required roles: [${allowedRoles}], User roles: [${userRoles}]`);
       return res.status(403).json({ message: 'Forbidden: You do not have permission to access this resource' });
     }
 

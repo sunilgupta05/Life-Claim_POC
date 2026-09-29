@@ -1,11 +1,12 @@
+const logger = require('../util/logger');
 const pool = require('../config/dbConfig');
 
 
 
 const addEmail = async (event) => {
-  console.info('inside addEmail DAO ', event);
+  logger.info('inside addEmail DAO ', event);
   if (event.hospitalId === undefined || event.email === undefined) {
-    console.error('hospitalId or email is undefined');
+    logger.error('hospitalId or email is undefined');
     throw new Error('Hospital ID or email is undefined');
   }
   const [result] = await pool.execute(
@@ -23,9 +24,9 @@ const addEmail = async (event) => {
   
 
   const addFax = async (event) => {
-    console.info('inside addFax DAO ', event);
+    logger.info('inside addFax DAO ', event);
     if (event.hospitalId === undefined || event.fax === undefined) {
-      console.error('hospitalId or fax is undefined');
+      logger.error('hospitalId or fax is undefined');
       throw new Error('Hospital ID or fax is undefined');
     }
     const [result] = await pool.execute(
@@ -41,9 +42,9 @@ const addEmail = async (event) => {
 
   
   const addContact = async (event) => {
-    console.info('inside addContact DAO ', event);
+    logger.info('inside addContact DAO ', event);
     if (event.hospitalId === undefined || event.contact === undefined) {
-      console.error('hospitalId or contact is undefined');
+      logger.error('hospitalId or contact is undefined');
       throw new Error('Hospital ID or contact is undefined');
     }
     const [result] = await pool.execute(
@@ -73,7 +74,7 @@ const addEmail = async (event) => {
     setClause = setClause.replace(/,\s*$/, '');
   
     if (setClause === '') {
-      console.log('No updates provided');
+      logger.info('No updates provided');
       return res.status(400).json({ error: 'No updates provided' });
     }
     const query = `UPDATE caps_hospital_email SET ${setClause} WHERE HOSPITAL_ID = ?`;
@@ -83,10 +84,10 @@ const addEmail = async (event) => {
   
     pool.query(query, updateParams, (err, result) => {
       if (err) {
-        console.error('Error updating event:', err);
+        logger.error('Error updating event:', err);
         res.status(500).json({ error: 'Internal Server Error' });
       } else {
-        console.log('Event updated successfully');
+        logger.info('Event updated successfully');
         res.status(200).json({ message: 'Event updated successfully' });
       }
     });
@@ -107,7 +108,7 @@ const addEmail = async (event) => {
     setClause = setClause.replace(/,\s*$/, '');
 
     if (setClause === '') {
-      console.log('No updates provided');
+      logger.info('No updates provided');
       return res.status(400).json({ error: 'No updates provided' });
     }
   
@@ -118,10 +119,10 @@ const addEmail = async (event) => {
   
     pool.query(query, updateParams, (err, result) => {
       if (err) {
-        console.error('Error updating event:', err);
+        logger.error('Error updating event:', err);
         res.status(500).json({ error: 'Internal Server Error' });
       } else {
-        console.log('Event updated successfully');
+        logger.info('Event updated successfully');
         res.status(200).json({ message: 'Event updated successfully' });
       }
     });
@@ -142,7 +143,7 @@ const addEmail = async (event) => {
     setClause = setClause.replace(/,\s*$/, '');
 
     if (setClause === '') {
-      console.log('No updates provided');
+      logger.info('No updates provided');
       return res.status(400).json({ error: 'No updates provided' });
     }
   
@@ -153,10 +154,10 @@ const addEmail = async (event) => {
   
     pool.query(query, updateParams, (err, result) => {
       if (err) {
-        console.error('Error updating event:', err);
+        logger.error('Error updating event:', err);
         res.status(500).json({ error: 'Internal Server Error' });
       } else {
-        console.log('Event updated successfully');
+        logger.info('Event updated successfully');
         res.status(200).json({ message: 'Event updated successfully' });
       }
     });
@@ -166,7 +167,7 @@ const addEmail = async (event) => {
 
   
   const deleteEmail = async (hospital_email) => {
-    console.info('inside delete DAO ', hospital_email);
+    logger.info('inside delete DAO ', hospital_email);
     const [result] = await pool.execute('DELETE FROM caps_hospital_email WHERE hospital_email = ?', [hospital_email]);
     return result;
   };

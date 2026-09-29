@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require('../config/dbConfig');
 
 const getRecentActivities = async () => {
@@ -22,7 +23,7 @@ const getRecentActivities = async () => {
     const [rows] = await db.execute(query);
     return rows;
   } catch (error) {
-    console.error('Error fetching dashboard activities from DB:', error);
+    logger.error('Error fetching dashboard activities from DB:', error);
     throw error;
   }
 };

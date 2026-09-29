@@ -1,9 +1,10 @@
+const logger = require('../util/logger');
 const { publishToQueue } = require('../queues/rabbitmq');
 
 const NOTIFICATIONS_QUEUE = 'notifications';
 
 const enqueueWhatsAppClaimRegistration = async (mobileNo, name, claimNo) => {
-  console.log('Service >>notificationQueueService >> enqueueWhatsAppClaimRegistration', 'Mobile No ',mobileNo, 'name', name, 'claimNo', claimNo);
+  logger.info('Service >>notificationQueueService >> enqueueWhatsAppClaimRegistration', 'Mobile No ',mobileNo, 'name', name, 'claimNo', claimNo);
   await publishToQueue(NOTIFICATIONS_QUEUE, {
     type: 'whatsapp-claim-registration',
     mobileNo,
@@ -14,7 +15,7 @@ const enqueueWhatsAppClaimRegistration = async (mobileNo, name, claimNo) => {
 };
 
 const enqueueWhatsAppPayoutCompleted = async (mobileNo, name, claimNo, amount) => {
-  console.log('Service >> notificationQueueService >> enqueueWhatsAppPayoutCompleted', 'Mobile No ',mobileNo, 'name', name, 'claimNo', claimNo, 'amount', amount);
+  logger.info('Service >> notificationQueueService >> enqueueWhatsAppPayoutCompleted', 'Mobile No ',mobileNo, 'name', name, 'claimNo', claimNo, 'amount', amount);
   await publishToQueue(NOTIFICATIONS_QUEUE, {
     type: 'whatsapp-payout-completed',
     mobileNo,
@@ -26,7 +27,7 @@ const enqueueWhatsAppPayoutCompleted = async (mobileNo, name, claimNo, amount) =
 };
 
 const enqueueEmailNotification = async ({ to, subject, text, html }) => {
-  console.log(
+  logger.info(
     'Service >> notificationQueueService >> enqueueEmailNotification',
     'to',
     to,
@@ -45,7 +46,7 @@ const enqueueEmailNotification = async ({ to, subject, text, html }) => {
 
 // New helpers for assignment and decision events
 const enqueueAssessorAssignmentNotification = async ({ claimId, email, mobileNo }) => {
-  console.log(
+  logger.info(
     'Service >> notificationQueueService >> enqueueAssessorAssignmentNotification',
     'claimId',
     claimId,
@@ -64,7 +65,7 @@ const enqueueAssessorAssignmentNotification = async ({ claimId, email, mobileNo 
 };
 
 const enqueueVerifierAssignmentNotification = async ({ claimId, email, mobileNo }) => {
-  console.log(
+  logger.info(
     'Service >> notificationQueueService >> enqueueVerifierAssignmentNotification',
     'claimId',
     claimId,
@@ -83,7 +84,7 @@ const enqueueVerifierAssignmentNotification = async ({ claimId, email, mobileNo 
 };
 
 const enqueueAssessorDecisionNotification = async ({ claimId, email, mobileNo, decision }) => {
-  console.log(
+  logger.info(
     'Service >> notificationQueueService >> enqueueAssessorDecisionNotification',
     'claimId',
     claimId,
@@ -105,7 +106,7 @@ const enqueueAssessorDecisionNotification = async ({ claimId, email, mobileNo, d
 };
 
 const enqueueVerifierDecisionNotification = async ({ claimId, email, mobileNo, decision }) => {
-  console.log(
+  logger.info(
     'Service >> notificationQueueService >> enqueueVerifierDecisionNotification',
     'claimId',
     claimId,

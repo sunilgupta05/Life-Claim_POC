@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddFindingsDao = require('../../dataAccess/add/capsAddFindingsDao');
 
 const saveFindingsController = async (req, res) => {
@@ -22,7 +23,7 @@ const saveFindingsController = async (req, res) => {
         if (error.statusCode === 409 || error.statusCode === 404) {
             return res.status(error.statusCode).json({ success: false, message: error.message });
         }
-        console.error('Error in saveFindingsController:', error);
+        logger.error('Error in saveFindingsController:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error while saving findings'

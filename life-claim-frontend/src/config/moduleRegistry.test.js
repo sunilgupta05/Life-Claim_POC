@@ -80,7 +80,8 @@ describe('visibleModules — reproduces today\'s nav per role (all modules enabl
     const nav = visibleModules(makeHasRole(['superuser', 'Assessor']), false, ALL);
     expect(ids(nav)).toEqual([
       'dashboard', 'superuser-overview', 'superuser-claims',
-      'claims', 'pool', 'tasks', 'add', 'audit-log', 'access-control',
+      'claims', 'pool', 'tasks', 'add', 'audit-log', 'access-control', 'branding', 'form-fields',
+      'integration-health', 'it-admin',
     ]);
   });
 });

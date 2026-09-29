@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const crypto = require('crypto');
 const appConfig = require('../config/configService');
 const fs = require('fs');
@@ -26,7 +27,7 @@ function loadKeys() {
   }
 
   if (appConfig.get('NODE_ENV') === 'production') {
-    console.error('[loginCrypto] LOGIN_RSA_* env vars or keys/login_*.pem are required in production.');
+    logger.error('[loginCrypto] LOGIN_RSA_* env vars or keys/login_*.pem are required in production.');
     return;
   }
 
@@ -41,7 +42,7 @@ function loadKeys() {
   fs.writeFileSync(pubPath, publicKey, { mode: 0o644 });
   privateKeyPem = privateKey;
   publicKeyPem = publicKey;
-  console.log('[loginCrypto] Generated development RSA key pair at', KEYS_DIR);
+  logger.info('[loginCrypto] Generated development RSA key pair at', KEYS_DIR);
 }
 
 function isEncryptionEnabled() {

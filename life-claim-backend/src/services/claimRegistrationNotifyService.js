@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const { publishToQueue } = require('../queues/rabbitmq');
 const appConfig = require('../config/configService');
 const whatsappService = require('./whatsappService');
@@ -25,7 +26,7 @@ const notifyClaimRegistered = async ({
   const customerName = (name && String(name).trim()) || 'Customer';
   const claimRef = claimNo || 'N/A';
 
-  console.log('ClaimRegistrationNotify >> start', {
+  logger.info('ClaimRegistrationNotify >> start', {
     claimRef,
     mobileNo: mobileNo ? '***' + String(mobileNo).slice(-4) : null,
     email: email || null,
@@ -38,7 +39,7 @@ const notifyClaimRegistered = async ({
       customerName,
       claimRef
     );
-    console.log('ClaimRegistrationNotify >> WhatsApp direct result:', {
+    logger.info('ClaimRegistrationNotify >> WhatsApp direct result:', {
       claimRef,
       success: result?.success,
       error: result?.error,
@@ -54,7 +55,7 @@ const notifyClaimRegistered = async ({
       });
     }
   } else {
-    console.warn('ClaimRegistrationNotify >> WhatsApp skipped: invalid or missing mobile', {
+    logger.warn('ClaimRegistrationNotify >> WhatsApp skipped: invalid or missing mobile', {
       mobileNo,
     });
   }
@@ -75,7 +76,7 @@ Life Claims Team`;
 <p>Thank you,<br/>Life Claims Team</p>`;
 
     const emailResult = await sendEmail({ to: email.trim(), subject, text, html });
-    console.log('ClaimRegistrationNotify >> Email direct result:', {
+    logger.info('ClaimRegistrationNotify >> Email direct result:', {
       claimRef,
       success: emailResult?.success,
       error: emailResult?.error,
@@ -92,7 +93,7 @@ Life Claims Team`;
       });
     }
   } else if (shouldSendEmail) {
-    console.warn('ClaimRegistrationNotify >> Email skipped: address missing');
+    logger.warn('ClaimRegistrationNotify >> Email skipped: address missing');
   }
 };
 

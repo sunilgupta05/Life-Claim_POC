@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const db = require("../config/dbConfig")
 const LifeAssuredDetail = require('../models/LifeAssuredDetail');
 const notificationQueueService = require('../services/notificationQueueService');
@@ -49,7 +50,7 @@ exports.getClaimByUsername = async (username) => {
         const [rows] = await db.execute(query, [username, username, username, username, username])
         return rows
     } catch (error) {
-        console.log(error)
+        logger.info(error)
     }
 }
 
@@ -60,7 +61,7 @@ exports.unassignClaim = async (claimNumber) => {
         const [rows] = await db.execute(query, [claimNumber])
         return rows
     } catch (error) {
-        console.log(error)
+        logger.info(error)
     }
 }
 
@@ -99,7 +100,7 @@ exports.changeStatus = async (claimNumber, status, username, role = null) => {
                     const email = lifeAssured.EMAIL_ID1 || lifeAssured.EMAIL_ID || lifeAssured.EMAIL || null;
 
                     if (role === 'Assessor' && status === 'Pending Assessor Action') {
-                        console.log(
+                        logger.info(
                             'claimsService >> claim_assigned_to_assessor',
                             'claimNumber',
                             claimNumber,
@@ -114,7 +115,7 @@ exports.changeStatus = async (claimNumber, status, username, role = null) => {
                             mobileNo,
                         });
                     } else if (role === 'Verifier' && status === 'Pending Verifier Allocation') {
-                        console.log(
+                        logger.info(
                             'claimsService >> claim_assigned_to_verifier',
                             'claimNumber',
                             claimNumber,
@@ -132,7 +133,7 @@ exports.changeStatus = async (claimNumber, status, username, role = null) => {
                 }
             }
         } catch (notifyErr) {
-            console.error(
+            logger.error(
                 'claimsService >> Error enqueueing assignment notification:',
                 notifyErr?.message || notifyErr
             );
@@ -140,7 +141,7 @@ exports.changeStatus = async (claimNumber, status, username, role = null) => {
 
         return rows;
     } catch (error) {
-        console.log(error);
+        logger.info(error);
     }
 }
 
@@ -150,6 +151,6 @@ exports.changeRole = async (claimNumber, role) => {
         const [rows] = await db.execute(query, [role, claimNumber])
         return rows
     } catch (error) {
-        console.log(error)
+        logger.info(error)
     }
 }

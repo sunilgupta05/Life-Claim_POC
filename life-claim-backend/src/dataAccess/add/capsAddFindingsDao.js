@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddFindings = require('../../models/add/CapsAddFindings');
 const { assertCaseEditable } = require('../../util/capsAddCaseGuards');
 
@@ -58,7 +59,7 @@ const saveFindings = async (findingsList, username) => {
 
         return await CapsAddFindings.bulkCreate(findingsToSave);
     } catch (error) {
-        console.error('Error in saveFindings DAO:', error);
+        logger.error('Error in saveFindings DAO:', error);
         throw error;
     }
 };

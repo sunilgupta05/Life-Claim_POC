@@ -1,0 +1,241 @@
+# Life Claims — Kubernetes app tier (roadmap 4.2): backend + worker + frontend + rules.
+#
+# Images are referenced by LOCAL tags with imagePullPolicy: IfNotPresent, so
+# locally-built images (docker build) are used directly on Docker Desktop
+# Kubernetes / minikube (minikube: run `eval $(minikube docker-env)` before build,
+# or `minikube image load life-claim-*:latest`). For a real cluster, push to a
+# registry and set the image to that ref (see kustomization.yaml `images:`).
+#
+# Data tier (MySQL/RabbitMQ/Redis) is in deploy/k8s/data.yaml (applied together via
+# kustomize). Keycloak + the external integrations are NOT deployed here — point
+# KEYCLOAK_URL / *_URL at them, or set AUTH_METHOD=local to skip Keycloak.
+#
+#   docker build -t life-claim-backend:latest  ./life-claim-backend
+#   docker build -t life-claim-frontend:latest ./life-claim-frontend
+#   docker build -t life-claim-rules:latest    ./life-claim-rules
+#   kubectl apply -k deploy/k8s
+#   kubectl -n life-claim exec deploy/backend -- npm run migrate   # first run
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: life-claim
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: life-claim-config
+  namespace: life-claim
+data:
+  NODE_ENV: "production"
+  USE_HTTPS: "false"                 # TLS terminated at the ingress
+  HOST: "0.0.0.0"
+  PORT: "3010"
+  DB_HOST: "mysql"
+  DB_DATABASE: "claims_poc"
+  DB_USER: "claims"
+  RABBITMQ_URL: "amqp://rabbitmq:5672"
+  REDIS_URL: "redis://redis:6379"
+  API_DOCS_ENABLED: "false"
+  # Set "true" only when reached over TLS (via the ingress). Keep "false" if you
+  # test with `kubectl port-forward` over plain HTTP, else auth is blocked.
+  REQUIRE_HTTPS_AUTH: "false"
+  # Rules engine (in-cluster).
+  RULES_ENGINE_ENABLED: "true"
+  RULES_ENGINE_URL: "http://rules:8095"
+  # External integrations — point at your environment (or set AUTH_METHOD=local).
+  KEYCLOAK_URL: "http://keycloak:8081"
+  # TXN_API_BASE_URL, DOCUMENT_VIEWER_IP, WHATSAPP_API_URL: "..."
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: life-claim-secrets
+  namespace: life-claim
+type: Opaque
+stringData:
+  # In production use Sealed Secrets / External Secrets / a CSI driver, or
+  # SECRETS_PROVIDER=vault (see docs/SECRETS.md). Change every value below.
+  DB_PASSWORD: "change-me"
+  JWT_SECRET: "change-me"
+  SESSION_SECRET: "change-me"
+  RULES_ENGINE_API_KEY: "change-me"   # must match on backend + rules (both read it)
+  INTERNAL_API_KEY: "change-me"
+  PII_ENCRYPTION_KEY: "change-me-base64-32-bytes"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: life-claim
+  labels: { app: backend }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: backend } }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: life-claim-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 3010 } ]
+          envFrom:
+            - configMapRef: { name: life-claim-config }
+            - secretRef: { name: life-claim-secrets }
+          readinessProbe:
+            httpGet: { path: /api/health/ready, port: 3010 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3010 }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "192Mi" }
+            limits: { cpu: "1", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: life-claim
+spec:
+  selector: { app: backend }
+  ports: [ { port: 3010, targetPort: 3010 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: life-claim
+  labels: { app: worker }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: worker } }
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      containers:
+        - name: worker
+          image: life-claim-backend:latest      # same image, different command
+          imagePullPolicy: IfNotPresent
+          command: ["node", "src/workers/notificationWorker.js"]
+          envFrom:
+            - configMapRef: { name: life-claim-config }
+            - secretRef: { name: life-claim-secrets }
+          resources:
+            requests: { cpu: "50m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rules
+  namespace: life-claim
+  labels: { app: rules }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: rules } }
+  template:
+    metadata:
+      labels: { app: rules }
+    spec:
+      containers:
+        - name: rules
+          image: life-claim-rules:latest
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 8095 } ]
+          env:
+            - name: RULES_ENGINE_API_KEY
+              valueFrom: { secretKeyRef: { name: life-claim-secrets, key: RULES_ENGINE_API_KEY } }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8095 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 8095 }
+            initialDelaySeconds: 40
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "100m", memory: "384Mi" }
+            limits: { cpu: "1", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rules
+  namespace: life-claim
+spec:
+  selector: { app: rules }
+  ports: [ { port: 8095, targetPort: 8095 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: life-claim
+  labels: { app: frontend }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: life-claim-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 80 } ]
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits: { cpu: "500m", memory: "128Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: life-claim
+spec:
+  selector: { app: frontend }
+  ports: [ { port: 80, targetPort: 80 } ]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: life-claim
+  namespace: life-claim
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  tls:
+    - hosts: [ claims.example.com ]
+      secretName: life-claim-tls
+  rules:
+    - host: claims.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: frontend, port: { number: 80 } }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: life-claim
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: backend }
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }

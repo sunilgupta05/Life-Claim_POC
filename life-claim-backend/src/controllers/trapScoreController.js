@@ -26,7 +26,7 @@ exports.getTrapScore = async (req, res, next) => {
 exports.getTrapScoreCity = async (req, res, next) => {
 
   try {
-    // console.log("someone called me")
+    // logger.info("someone called me")
     const {pin,city} = req.body;
     const data = await trapScoreService.getTrapScoreCity({pin,city});
     // logger.info(`Row fetched: ${data}`);

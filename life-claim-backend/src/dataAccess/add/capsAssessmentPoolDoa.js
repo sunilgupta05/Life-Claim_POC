@@ -1,3 +1,4 @@
+const logger = require('../../util/logger');
 const CapsAddDetails = require('../../models/add/CapsAddDetails');
 const CapsAddContractDetails = require('../../models/add/CapsAddContractDetails');
 const CapsAddLifeAssuredDetails = require('../../models/add/CapsAddLifeAssuredDetails');
@@ -9,13 +10,13 @@ const { formatProductName } = require('../../util/formatProductName');
 
 //using raw query to get the data from the database
 const getAssessmentPoolDataRaw = async (attribute, value) => {
-    console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>caseId: Attribute: ${attribute} Value: ${value} `);
+    logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>caseId: Attribute: ${attribute} Value: ${value} `);
     if (!value) {
         return "Missing value! Add Data in the value field.";
     } else if (!attribute) {
         return "Missing attribute! Add Data in the attribute field.";
     } else {
-        console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>caseId: Attribute: ${attribute} Value: ${value} else block`);
+        logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>caseId: Attribute: ${attribute} Value: ${value} else block`);
         try {
             // Whitelist allowed attributes to prevent SQL Injection on column names
             const allowedAttributes = {
@@ -27,7 +28,7 @@ const getAssessmentPoolDataRaw = async (attribute, value) => {
 
             const dbColumn = allowedAttributes[attribute.toLowerCase()];
             if (!dbColumn) {
-                console.error(`Invalid attribute provided: ${attribute}`);
+                logger.error(`Invalid attribute provided: ${attribute}`);
                 return "Invalid search attribute.";
             }
 
@@ -36,10 +37,10 @@ const getAssessmentPoolDataRaw = async (attribute, value) => {
             INNER JOIN CAPS_ADD_LIFE_ASSURED_DETAILS la ON d.case_id = la.case_id 
             INNER JOIN CAPS_ADD_DECISION deci ON d.case_id = deci.case_id 
             where ${dbColumn} = ? LIMIT 10 offset 0;`, [value]);
-            console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>response: `, response);
+            logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>response: `, response);
             return response;
         } catch (error) {
-            console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>error: `, error);
+            logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentDataRaw>>error: `, error);
             return error;
         }
     }
@@ -47,7 +48,7 @@ const getAssessmentPoolDataRaw = async (attribute, value) => {
 
 //using ORM to get the data from the database
 const getAssessmentData = async (attribute, value) => {
-    console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentData>>caseId: Attribute: ${attribute} Value: ${value} `);
+    logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentData>>caseId: Attribute: ${attribute} Value: ${value} `);
 
     try {
         const response = await CapsAddDetails.findAll({
@@ -91,11 +92,11 @@ const getAssessmentData = async (attribute, value) => {
         });
 
 
-        console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentData>>response: `, response);
+        logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentData>>response: `, response);
         return response;
 
     } catch (error) {
-        console.log(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentData>>error: `, error);
+        logger.info(` dataAccess>>CapsAssessmentPoolDOA>>getAssessmentData>>error: `, error);
         return error
     }
 }
@@ -110,7 +111,7 @@ const getAssessmentData = async (attribute, value) => {
  * @returns {Promise<Array>}
  */
 const getAssessorPoolCases = async (attribute = null, value = null, exclusionFilter = null, limit = 5, offset = 0) => {
-    console.log(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Attribute: ${attribute}, Value: ${value}, ExclusionFilter: ${exclusionFilter}, Limit: ${limit}, Offset: ${offset}`);
+    logger.info(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Attribute: ${attribute}, Value: ${value}, ExclusionFilter: ${exclusionFilter}, Limit: ${limit}, Offset: ${offset}`);
     
     try {
         // Build WHERE clause dynamically
@@ -152,7 +153,7 @@ const getAssessorPoolCases = async (attribute = null, value = null, exclusionFil
                 whereConditions.push(`${dbColumn} = ?`);
                 queryParams.push(searchValue);
             } else {
-                console.warn(`Attempted search with unsupported attribute: ${attribute}`);
+                logger.warn(`Attempted search with unsupported attribute: ${attribute}`);
                 // Don't add a filter for an unknown attribute to keep it safe
             }
         }
@@ -219,11 +220,11 @@ const getAssessorPoolCases = async (attribute = null, value = null, exclusionFil
         queryParams.push(limit, offset);
         
         // Execute the count query
-        console.log(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Count Query:`, countQueryText);
-        console.log(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Count Query Params:`, queryParams.slice(0, -1));
+        logger.info(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Count Query:`, countQueryText);
+        logger.info(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Count Query Params:`, queryParams.slice(0, -1));
         const [countRows] = await db.query(countQueryText, queryParams.slice(0, -2)); // Remove limit and offset for count query
         const totalCount = countRows[0][Object.keys(countRows[0])[0]];
-        console.log(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Total Count:`, totalCount);
+        logger.info(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Total Count:`, totalCount);
 
         // Execute the data query
         const [rows] = await db.query(queryText, queryParams);
@@ -258,11 +259,11 @@ const getAssessorPoolCases = async (attribute = null, value = null, exclusionFil
             status: caseItem.STATUS || 'Non-Exclusion'
         }));
         
-        console.log(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Found ${transformedData.length} cases, Total: ${totalCount}`);
+        logger.info(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>Found ${transformedData.length} cases, Total: ${totalCount}`);
         return { data: transformedData, totalCount };
         
     } catch (error) {
-        console.error(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>error:`, error);
+        logger.error(`dataAccess>>CapsAssessmentPoolDOA>>getAssessorPoolCases>>error:`, error);
         throw error;
     }
 };
@@ -273,7 +274,7 @@ const getAssessorPoolCases = async (attribute = null, value = null, exclusionFil
  * @returns {Promise<Object>}
  */
 const getCaseDetailsById = async (caseId) => {
-    console.log(`dataAccess>>CapsAssessmentPoolDOA>>getCaseDetailsById>>CaseID: ${caseId}`);
+    logger.info(`dataAccess>>CapsAssessmentPoolDOA>>getCaseDetailsById>>CaseID: ${caseId}`);
     try {
         const queryText = `
             SELECT 
@@ -391,7 +392,7 @@ const getCaseDetailsById = async (caseId) => {
             }
         };
     } catch (error) {
-        console.error(`dataAccess>>CapsAssessmentPoolDOA>>getCaseDetailsById>>error:`, error);
+        logger.error(`dataAccess>>CapsAssessmentPoolDOA>>getCaseDetailsById>>error:`, error);
         throw error;
     }
 };

@@ -1,0 +1,40 @@
+# Alertmanager routing for Life Claims (roadmap 4.3). Fill in the client's real
+# receiver (Slack/email/PagerDuty) and remove the null default.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: oncall
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    # Replace with a real receiver. Examples below.
+
+  - name: oncall
+    # --- Slack ---
+    # slack_configs:
+    #   - api_url: '<SLACK_WEBHOOK_URL>'
+    #     channel: '#life-claim-alerts'
+    #     title: '{{ .CommonAnnotations.summary }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}'
+    # --- Email ---
+    # email_configs:
+    #   - to: 'ops@client.example'
+    #     from: 'alerts@client.example'
+    #     smarthost: 'smtp.client.example:587'
+    # --- PagerDuty ---
+    # pagerduty_configs:
+    #   - routing_key: '<PD_ROUTING_KEY>'
+
+inhibit_rules:
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: ['alertname']

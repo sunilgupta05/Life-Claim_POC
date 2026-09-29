@@ -1,3 +1,62 @@
+// ---- Schema-driven form field definitions (roadmap 2.2) --------------------
+// Forms described by DATA, rendered by components/forms/SchemaForm.jsx (which
+// uses react-hook-form). Migrating these registration sections off static JSX.
+// (Roadmap 2.3 will add per-deployment hidden/required toggles over these.)
+
+/** IIB Enquiry sub-form (Assessment tab). Keys match the wizard's data/DB fields. */
+export const IIB_ENQUIRY_FIELDS = [
+  { name: 'iibRefNo', label: 'IIB Reference Number', type: 'text' },
+  { name: 'iibEnquiryDate', label: 'Enquiry Date', type: 'date' },
+  { name: 'iibStatus', label: 'Enquiry Status', type: 'select', options: ['Pending', 'Completed', 'Failed', 'Not Initiated'] },
+  { name: 'iibPoliciesFound', label: 'No. of Policies Found', type: 'number' },
+  { name: 'iibTotalSA', label: 'Total Sum Assured (₹)', type: 'text' },
+  { name: 'iibFraudFlag', label: 'Fraud Flag', type: 'select', options: ['Yes', 'No', 'NA'] },
+  { name: 'iibMultiplePolicy', label: 'Multiple Policy Detected', type: 'yesno' },
+  { name: 'iibNonDisclosure', label: 'Non-Disclosure Detected', type: 'select', options: ['Yes', 'No', 'NA'] },
+  { name: 'iibRemarks', label: 'IIB Remarks', type: 'textarea', rows: 3, colSpan: 'full', placeholder: 'Enter IIB enquiry findings...' },
+]
+
+/** Telecalling sub-form (Assessment tab). */
+export const TELECALLING_FIELDS = [
+  { name: 'telecallingDate', label: 'Telecalling Date', type: 'date' },
+  { name: 'telecallerName', label: 'Telecaller Name', type: 'text' },
+  { name: 'telecalledNumber', label: 'Called Number', type: 'text', maxLength: 10 },
+  { name: 'telecallStatus', label: 'Call Status', type: 'select', options: ['Connected', 'Not Connected', 'Switched Off', 'Invalid Number', 'Callback Requested'] },
+  { name: 'telecallDuration', label: 'Call Duration (mins)', type: 'number' },
+  { name: 'telecallOutcome', label: 'Verification Outcome', type: 'select', options: ['Verified', 'Not Verified', 'Partial Verification', 'Suspicious', 'Requires Follow-up'] },
+  { name: 'telecallingRemarks', label: 'Telecalling Remarks', type: 'textarea', rows: 4, colSpan: 'full', placeholder: 'Enter detailed telecalling remarks...' },
+]
+
+/** Decision tab → Accessor Decision sub-form. Keys match the wizard's data fields. */
+export const DECISION_ACCESSOR_FIELDS = [
+  { name: 'accessorDecision', label: 'Decision', type: 'select', required: true, options: ['Approve', 'Reject', 'Refer to Verifier', 'Request More Documents', 'Repudiate'] },
+  { name: 'accessorAmount', label: 'Recommended Amount', type: 'text', placeholder: 'e.g. 1250000' },
+  { name: 'accessorReason', label: 'Reason / Remarks', type: 'textarea', rows: 5, colSpan: 'full', placeholder: 'Provide detailed reasoning for your decision...' },
+  { name: 'accessorName', label: 'Assessor Name', type: 'text', placeholder: 'Your name' },
+  { name: 'accessorDecisionDate', label: 'Decision Date', type: 'date' },
+]
+
+/** Decision tab → Verification sub-form (completed by the Verifier role). */
+export const DECISION_VERIFICATION_FIELDS = [
+  { name: 'verificationStatus', label: 'Verification Status', type: 'select', options: ['Pending', 'In Progress', 'Verified', 'Rejected'] },
+  { name: 'verifierName', label: 'Verifier Name', type: 'text', placeholder: 'Verifier name' },
+  { name: 'verificationDate', label: 'Verification Date', type: 'date' },
+  { name: 'sendMail', label: 'Send Mail on Completion', type: 'select', options: ['Yes', 'No'] },
+  { name: 'verificationRemarks', label: 'Verification Remarks', type: 'textarea', rows: 4, colSpan: 'full', placeholder: 'Enter verification remarks...' },
+]
+
+/** Requirements tab → Communication sub-form (visible to Assessor+ roles). */
+export const COMMUNICATION_FIELDS = [
+  { name: 'commEmailSent', label: 'Email Sent to Claimant', type: 'select', options: ['Yes', 'No', 'Pending'] },
+  { name: 'commEmailDate', label: 'Email Sent Date', type: 'date' },
+  { name: 'commSmsSent', label: 'SMS Sent to Claimant', type: 'select', options: ['Yes', 'No', 'Pending'] },
+  { name: 'commSmsDate', label: 'SMS Sent Date', type: 'date' },
+  { name: 'commLetterSent', label: 'Letter Dispatched', type: 'select', options: ['Yes', 'No', 'Pending'] },
+  { name: 'commLetterDate', label: 'Letter Dispatch Date', type: 'date' },
+  { name: 'commWhatsapp', label: 'WhatsApp Notified', type: 'select', options: ['Yes', 'No', 'NA'] },
+  { name: 'commRemarks', label: 'Communication Remarks', type: 'textarea', rows: 3, colSpan: 'full', placeholder: 'Enter communication details...' },
+]
+
 /** Fixed requirement checklist for Pre Assessor registration (v1 business list, v2 UI). */
 export const REGISTRATION_REQUIREMENTS = [
   {

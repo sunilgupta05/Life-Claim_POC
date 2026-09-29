@@ -1,4 +1,4 @@
-const email_fax_mobile_SearchService = require('../services/email_fax_mobile_SearchService');
+const email_fax_mobile_SearchService = require('../services/email_fax_mobile_searchService');
 
 exports.getRecordsforEmail_fax_contact = async (req, res) => {
   try {

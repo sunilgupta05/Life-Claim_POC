@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useRegTokens } from '../../pages/Registration/shared'
-import { Field, Input, Select, Textarea, SubTabNav, Grid, Btn, InfoCard } from './shared'
+import { Field, Select, Textarea, Input, SubTabNav, Grid, Btn, InfoCard } from './shared'
 import { getSystemDecision } from '../../services/masterService'
 import { useToast } from '../../components/Toast'
 import { validateAssessment, showValidationToast } from '../../util/registrationValidation'
-import { statusPillStyle, fieldInputStyle, alertBannerStyle } from '../../ui/pageTokens'
+import { statusPillStyle, alertBannerStyle } from '../../ui/pageTokens'
 import { REGISTRATION_ASSESSMENT_QUESTIONS } from '../../config/registrationCatalog'
+import SchemaForm from '../../components/forms/SchemaForm'
+import { useFormFields } from '../../hooks/useFormFields'
 
 export default function AssessmentTab({
   userRole,
@@ -23,12 +25,22 @@ export default function AssessmentTab({
   const questions = REGISTRATION_ASSESSMENT_QUESTIONS
   const [finishing, setFinishing] = useState(false)
 
+  // Roadmap 2.3: resolve the effective (per-deployment-configured) fields for the
+  // schema-driven IIB + Telecalling sub-forms. Hidden/required come from config.
+  const iibForm = useFormFields('registration.iib')
+  const teleForm = useFormFields('registration.telecalling')
+
   const setAnswer = (id, val) => update({ assessmentAnswers: { ...(data.assessmentAnswers || {}), [id]: val } })
   const selectAllYes = () => {
     const allYes = Object.fromEntries(questions.map((q) => [q.id, 'Yes']))
     update({ assessmentAnswers: { ...(data.assessmentAnswers || {}), ...allYes } })
   }
   const ans = data.assessmentAnswers || {}
+
+  // Schema-driven forms (roadmap 2.2): the IIB Enquiry and Telecalling sub-forms
+  // are now described by field-definition data (registrationCatalog) and rendered
+  // by SchemaForm (react-hook-form). Same data keys → wizard behaviour unchanged.
+  const onFieldChange = (name, val) => update({ [name]: val })
 
   const answeredCount = questions.filter((q) => ans[q.id]).length
   const allAnswered = answeredCount >= questions.length
@@ -79,7 +91,7 @@ export default function AssessmentTab({
                 </tr>
               </thead>
               <tbody>
-                {questions.map((q, i) => {
+                {questions.map((q) => {
                   const a = ans[q.id]
                   return (
                     <tr
@@ -110,52 +122,14 @@ export default function AssessmentTab({
       {subTab === 'IIB Enquiry' && (
         <div>
           <div style={{ marginBottom: '16px' }}><InfoCard type="info">IIB (Insurance Information Bureau) enquiry checks the life assured&apos;s existing insurance portfolio across all insurers.</InfoCard></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {[
-              { key: 'iibRefNo', label: 'IIB Reference Number' },
-              { key: 'iibEnquiryDate', label: 'Enquiry Date', type: 'date' },
-              { key: 'iibStatus', label: 'Enquiry Status', opts: ['Pending', 'Completed', 'Failed', 'Not Initiated'] },
-              { key: 'iibPoliciesFound', label: 'No. of Policies Found' },
-              { key: 'iibTotalSA', label: 'Total Sum Assured (₹)' },
-              { key: 'iibFraudFlag', label: 'Fraud Flag', opts: ['Yes', 'No', 'NA'] },
-              { key: 'iibMultiplePolicy', label: 'Multiple Policy Detected', opts: ['Yes', 'No'] },
-              { key: 'iibNonDisclosure', label: 'Non-Disclosure Detected', opts: ['Yes', 'No', 'NA'] },
-            ].map((f) => (
-              <div key={f.key}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: T.textSecondary, marginBottom: '5px' }}>{f.label}</label>
-                {f.opts ? (
-                  <select value={data[f.key] || ''} onChange={(e) => update({ [f.key]: e.target.value })}
-                    style={fieldInputStyle(T, { width: '100%', height: '38px', padding: '0 10px', border: `1.5px solid ${T.border}`, borderRadius: '7px', outline: 'none' })}>
-                    <option value="">-- Select --</option>
-                    {f.opts.map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                ) : (
-                  <input type={f.type || 'text'} value={data[f.key] || ''} onChange={(e) => update({ [f.key]: e.target.value })}
-                    style={fieldInputStyle(T, { width: '100%', height: '38px', padding: '0 10px', border: `1.5px solid ${T.border}`, borderRadius: '7px', outline: 'none', boxSizing: 'border-box' })} />
-                )}
-              </div>
-            ))}
-            <div style={{ gridColumn: '1/-1' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: T.textSecondary, marginBottom: '5px' }}>IIB Remarks</label>
-              <textarea value={data.iibRemarks || ''} onChange={(e) => update({ iibRemarks: e.target.value })} rows={3} placeholder="Enter IIB enquiry findings..."
-                style={fieldInputStyle(T, { width: '100%', padding: '8px 10px', border: `1.5px solid ${T.border}`, borderRadius: '7px', outline: 'none', resize: 'vertical', boxSizing: 'border-box', height: 'auto' })} />
-            </div>
-          </div>
+          <SchemaForm schema={iibForm.fields} values={data} onChange={onFieldChange} columns={2} />
         </div>
       )}
 
       {subTab === 'Telecalling' && (
         <div>
           <div style={{ marginBottom: '16px' }}><InfoCard type="info">Telecalling details are recorded after initial field verification is complete.</InfoCard></div>
-          <Grid cols={2}>
-            <Field label="Telecalling Date"><Input type="date" value={data.telecallingDate} onChange={(e) => update({ telecallingDate: e.target.value })} /></Field>
-            <Field label="Telecaller Name"><Input value={data.telecallerName} onChange={(e) => update({ telecallerName: e.target.value })} /></Field>
-            <Field label="Called Number"><Input value={data.telecalledNumber} onChange={(e) => update({ telecalledNumber: e.target.value })} maxLength={10} /></Field>
-            <Field label="Call Status"><Select value={data.telecallStatus} onChange={(e) => update({ telecallStatus: e.target.value })} options={['Connected', 'Not Connected', 'Switched Off', 'Invalid Number', 'Callback Requested']} /></Field>
-            <Field label="Call Duration (mins)"><Input value={data.telecallDuration} onChange={(e) => update({ telecallDuration: e.target.value })} /></Field>
-            <Field label="Verification Outcome"><Select value={data.telecallOutcome} onChange={(e) => update({ telecallOutcome: e.target.value })} options={['Verified', 'Not Verified', 'Partial Verification', 'Suspicious', 'Requires Follow-up']} /></Field>
-            <Field label="Telecalling Remarks" full><Textarea value={data.telecallingRemarks} onChange={(e) => update({ telecallingRemarks: e.target.value })} placeholder="Enter detailed telecalling remarks..." rows={4} /></Field>
-          </Grid>
+          <SchemaForm schema={teleForm.fields} values={data} onChange={onFieldChange} columns={2} />
         </div>
       )}
 

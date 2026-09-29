@@ -457,3 +457,38 @@ select {
   border-color: var(--success-border);
   color: var(--success);
 }
+
+/* ============================================================================
+   Responsive / mobile (roadmap 4.7)
+   The app uses inline styles heavily; these media queries use `!important` to
+   override inline grid-template-columns on smaller screens without touching
+   desktop. `.reg-grid` backs every wizard form + SchemaForm (via <Grid>).
+   ============================================================================ */
+
+/* Never let the page scroll horizontally as a whole; wide tables scroll inside
+   their own .premium-grid__scroll container instead. */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+/* Tablet (641–900px): 3+ column form grids drop to 2 columns. Scoped to a RANGE
+   so it never overlaps the phone rule below (a more-specific selector would
+   otherwise win at phone widths). */
+@media (min-width: 641px) and (max-width: 900px) {
+  .reg-grid[data-cols="3"],
+  .reg-grid[data-cols="4"] { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Phones (≤640px): every form grid becomes a single column. */
+@media (max-width: 640px) {
+  .reg-grid,
+  .reg-grid[data-cols="2"],
+  .reg-grid[data-cols="3"],
+  .reg-grid[data-cols="4"] { grid-template-columns: 1fr !important; gap: 12px !important; }
+}
+
+/* Phones: trim the large fixed paddings some page shells use so content isn't
+   squeezed. Targets the common 24px content padding wrappers. */
+@media (max-width: 640px) {
+  main { -webkit-overflow-scrolling: touch; }
+  /* generic scroll containers keep working; long code/pre blocks scroll */
+  pre, code { max-width: 100%; overflow-x: auto; }
+}

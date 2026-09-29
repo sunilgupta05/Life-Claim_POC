@@ -1,0 +1,8 @@
+target
+.mvn
+*.log
+.git
+.idea
+Dockerfile
+.dockerignore
+start-rules.bat

@@ -1,0 +1,25 @@
+# Prometheus config for Life Claims (roadmap 4.3). Scrapes the backend /api/metrics
+# and evaluates the alert rules. Drop into your Prometheus deployment.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: life-claim-backend
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true   # self-signed in on-prem; use a real CA where possible
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ['backend:3010']
+    # If Prometheus is outside the private network, authenticate the internal endpoint:
+    # authorization: {}   # or set a header via a relabel/exporter proxy
+    # (INTERNAL_API_KEY as X-Internal-Api-Key — see docs/SERVICE_EXPOSURE.md)

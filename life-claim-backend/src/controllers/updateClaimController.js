@@ -1,3 +1,4 @@
+const logger = require('../util/logger');
 const IntimationDetail = require("../models/IntimationDetail");
 const appConfig = require('../config/configService');
 const TrapScore = require("../models/TrapScore");
@@ -76,7 +77,7 @@ const TelecallingTable = require("../models/Telecalling");
 const CaseTriggerTable = require("../models/CaseTrigger");
 
 const updateClaim = async (req, res) => {
-  console.log("updateClaim controller request received");
+  logger.info("updateClaim controller request received");
   const transaction = await sequelize.transaction();
   const body = req.body || {};
   try {
@@ -112,7 +113,7 @@ const updateClaim = async (req, res) => {
       caseTriggerTable = [],
     } = body;
 
-    console.log(claimNo);
+    logger.info(claimNo);
 
     const claim = await Claim.findOne({
       where: { CLAIM_NUMBER: claimNo },
@@ -141,7 +142,7 @@ const updateClaim = async (req, res) => {
         where: { CLAIM_ID: claimId },
         transaction,
       });
-      console.log("Intimation");
+      logger.info("Intimation");
     }
 
     if (hasMeaningfulData(systemAssessorRemarks)) {
@@ -219,7 +220,7 @@ const updateClaim = async (req, res) => {
         where: { CLAIM_ID: claimId },
         transaction,
       });
-      console.log("Life assured");
+      logger.info("Life assured");
     }
 
     if (body.contactDetails != null && hasMeaningfulData(contactDetails)) {
@@ -231,7 +232,7 @@ const updateClaim = async (req, res) => {
         where: { CLAIM_ID: claimId },
         transaction,
       });
-      console.log("Contacts done");
+      logger.info("Contacts done");
     }
 
     if (body.eagleScreenDetails != null && hasMeaningfulData(eagleScreenDetails)) {
@@ -243,7 +244,7 @@ const updateClaim = async (req, res) => {
         where: { CLAIM_ID: claimId },
         transaction,
       });
-      console.log("eagleScreenSnake done");
+      logger.info("eagleScreenSnake done");
     }
 
     if (body.iibEnquiryTable != null) {
@@ -280,7 +281,7 @@ const updateClaim = async (req, res) => {
           })
         );
       }
-      console.log("IIB done");
+      logger.info("IIB done");
     }
 
     if (payeeDetails.length > 0) {
@@ -293,7 +294,7 @@ const updateClaim = async (req, res) => {
         await PayeeDetail.create(payee, { transaction });
       }
     } else {
-      console.log("No changes in payee");
+      logger.info("No changes in payee");
     }
 
     if (Array.isArray(claimantDetails) && claimantDetails.length > 0) {
@@ -530,7 +531,7 @@ const updateClaim = async (req, res) => {
     if (transaction.finished !== "commit") {
       await transaction.rollback();
     }
-    console.log(error);
+    logger.info(error);
     res.status(500).json({
       message: "Internal server error",
       ...(appConfig.get('NODE_ENV') !== "production" ? { detail: error?.message || String(error) } : {}),
