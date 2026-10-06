@@ -1,144 +1,133 @@
 # Life Claims — Kubernetes Deployment
 
-Deploy the whole project (backend API + notification worker + rules engine +
-frontend + MySQL/RabbitMQ/Redis) to Kubernetes. Works on Docker Desktop
-Kubernetes, minikube, or any real cluster.
+One command deploys the whole app — **backend** (API), **worker** (notifications),
+**rules** (Drools) and **frontend** (nginx) — from the Docker Hub images:
 
-## Files
+| Component | Image | Port | Service (in-cluster DNS) |
+|-----------|-------|------|--------------------------|
+| backend | `guptasunil05/life-claim-backend:v1.0.0` | 3010 | `backend:3010` |
+| worker | `guptasunil05/life-claim-backend:v1.0.0` (cmd `node src/workers/notificationWorker.js`) | — | — |
+| rules | `guptasunil05/life-claim-rules:v1.0.0` | 8095 | `rules:8095` |
+| frontend | `guptasunil05/life-claim-frontend:v1.0.0` | 80 | `frontend:80` |
 
-| File | What it contains |
-|------|------------------|
-| `app.yaml` | Namespace, ConfigMap, Secret, and the app tier: **backend**, **worker**, **rules**, **frontend** (+ Services, Ingress, HPA) |
-| `data.yaml` | In-cluster **MySQL** (PVC) + **RabbitMQ** + **Redis** (skip if you use managed DB/queue) |
-| `kustomization.yaml` | Ties both together so `kubectl apply -k` deploys everything at once |
+MySQL, Redis, RabbitMQ, Keycloak, the Transaction API and Alfresco are **not**
+deployed here — the app uses the existing ones configured in
+`life-claim-backend/.env` (currently `192.168.60.62`). The cluster must be able
+to reach them.
 
----
+## Deploy (one command)
 
-## Step 1 — Build the 3 images and push to Docker Hub
+From the repo root, with `kubectl` pointing at a working cluster
+(`kubectl get nodes` shows `Ready`):
 
-Replace `DOCKERHUB_USER` with your Docker Hub username everywhere below.
+```powershell
+# Local test cluster (minikube / Docker Desktop) — opens http://localhost:8088
+.\deploy\k8s\deploy.ps1 -Env local -PortForward
 
-```bash
-# build
-docker build -t DOCKERHUB_USER/life-claim-backend:latest  ./life-claim-backend
-docker build -t DOCKERHUB_USER/life-claim-frontend:latest ./life-claim-frontend
-docker build -t DOCKERHUB_USER/life-claim-rules:latest    ./life-claim-rules
-
-# push (docker login first)
-docker login
-docker push DOCKERHUB_USER/life-claim-backend:latest
-docker push DOCKERHUB_USER/life-claim-frontend:latest
-docker push DOCKERHUB_USER/life-claim-rules:latest
+# Production (Ingress + HTTPS + autoscaling)
+.\deploy\k8s\deploy.ps1 -Env production
 ```
 
-Then set the same username in `kustomization.yaml` → `images:` (replace
-`DOCKERHUB_USER`). Now the cluster pulls the images from Docker Hub — you do NOT
-need Docker on the server, only `kubectl`.
+Linux/macOS: `./deploy/k8s/deploy.sh local` or `./deploy/k8s/deploy.sh production`.
 
-> Tip: use a version tag (`:v2.0.0`) instead of `:latest` for deterministic rollouts.
+The script:
+1. creates namespace `life-claim`
+2. creates/updates Secret `life-claim-secrets` from `life-claim-backend/.env` (never committed)
+3. `kubectl apply -k deploy/k8s/overlays/<env>` — creates every Deployment, Service, ConfigMap, PVC, NetworkPolicy (+ Ingress, HPA, PDB in production)
+4. restarts backend/worker/rules only if `.env` changed
+5. waits until all pods are ready and prints how to open the app
 
-## Step 2 — Set the secrets
+It is idempotent — re-run it after editing `.env` or releasing a new image tag.
 
-Edit `app.yaml` → the `Secret` named `life-claim-secrets` and replace every
-`change-me`:
+## Layout
 
-```yaml
-stringData:
-  DB_PASSWORD: "<strong-password>"
-  JWT_SECRET: "<random-long-string>"
-  SESSION_SECRET: "<random-long-string>"
-  RULES_ENGINE_API_KEY: "<random-string>"     # backend + rules must match (they read the same key)
-  INTERNAL_API_KEY: "<random-string>"
-  PII_ENCRYPTION_KEY: "<`openssl rand -base64 32`>"
+```
+deploy/k8s/
+├── deploy.ps1 / deploy.sh        one-command deploy
+├── base/                         shared, production-grade manifests
+│   ├── namespace.yaml            Pod Security Admission labels
+│   ├── configmap.yaml            container-only overrides (rules URL, HTTP inside cluster, ...)
+│   ├── storage.yaml              PVC for logo uploads (uploads/branding)
+│   ├── backend.yaml              Deployment + Service (probes, non-root, read-only FS)
+│   ├── worker.yaml               notification worker Deployment
+│   ├── rules.yaml                Drools Deployment + Service
+│   ├── frontend.yaml             nginx Deployment + Service
+│   └── networkpolicy.yaml        default-deny + allow-lists
+├── overlays/
+│   ├── production/               Ingress (TLS), HPA, PDB, domain CORS, image tags
+│   └── local/                    1 replica each, HTTP via port-forward
+└── optional/
+    ├── cluster-issuer.yaml       Let's Encrypt issuer for cert-manager
+    └── data.yaml                 in-cluster MySQL/RabbitMQ/Redis (not used by default)
 ```
 
-> For real production, don't commit secrets — use Sealed Secrets / External
-> Secrets / a vault (`SECRETS_PROVIDER=vault`, see `docs/SECRETS.md`).
+### How configuration is resolved
 
-## Step 3 — Deploy everything (one command)
+Each backend/worker pod gets `envFrom: [Secret life-claim-secrets, ConfigMap life-claim-config]`.
+The ConfigMap is listed last, so it overrides the few `.env` keys that are wrong
+inside a cluster: `RULES_ENGINE_URL=http://rules:8095`, `USE_HTTPS=false`,
+`NODE_ENV`, `TRUST_PROXY`, `REQUIRE_HTTPS_AUTH`, `LOG_TO_FILE=false`,
+`CORS_ALLOWED_ORIGINS`. Everything else comes from `.env` unchanged.
 
-```bash
-kubectl apply -k deploy/k8s
-```
+## Production checklist
 
-*(Prefer plain `-f`? `kubectl apply -f deploy/k8s/data.yaml -f deploy/k8s/app.yaml`)*
-
-Watch pods come up:
-
-```bash
-kubectl -n life-claim get pods -w
-```
-
-Wait until backend, worker, rules, frontend, mysql, rabbitmq, redis are all
-`Running` / `READY 1/1`.
-
-## Step 4 — Initialize the database (first deploy only)
-
-```bash
-kubectl -n life-claim exec deploy/backend -- npm run migrate
-```
-
-## Step 5 — Open the app
-
-```bash
-kubectl -n life-claim port-forward svc/frontend 8088:80
-# browser → http://localhost:8088
-```
-
-For a real cluster, use the Ingress instead (Step 7).
-
----
-
-## Important config choices
-
-### Login (Keycloak) — pick ONE
-
-Keycloak is **not** deployed in-cluster. In `app.yaml` → ConfigMap:
-
-- **Use your existing Keycloak:** set `KEYCLOAK_URL` to a host the pods can reach.
-- **Skip Keycloak (local DB login):** add `AUTH_METHOD: "local"` to the ConfigMap.
-  Then the demo users (`admin` / `assessor` / `verifier` / `preassessor`,
-  password `password123`) sign in against the DB — no Keycloak needed.
-
-### HTTPS auth
-
-`REQUIRE_HTTPS_AUTH` is `"false"` in the ConfigMap so `port-forward` (plain HTTP)
-works. Set it to `"true"` once you serve the app over TLS (via the Ingress).
-
----
-
-## Step 7 (production) — Ingress + TLS
-
-The `Ingress` in `app.yaml` routes `claims.example.com` → frontend. To use it:
-
-1. Install an ingress controller (e.g. `ingress-nginx`):
+1. **Domain** — replace `claims.example.com` in `overlays/production/ingress.yaml`
+   and in the CORS patch in `overlays/production/kustomization.yaml`.
+2. **Ingress controller** — install ingress-nginx (namespace `ingress-nginx`;
+   the NetworkPolicies allow traffic from it):
    ```bash
    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
    ```
-2. Change the host in `app.yaml` (`claims.example.com`) to your real domain and
-   provide the TLS secret `life-claim-tls` (e.g. via cert-manager).
-3. Point DNS at the ingress controller's external IP.
+3. **TLS** — install cert-manager and apply `optional/cluster-issuer.yaml` (set
+   your email), or create secret `life-claim-tls` yourself (see `ingress.yaml`).
+4. **metrics-server** — needed by the HPAs.
+5. **RWX storage** — `backend-uploads` is ReadWriteMany; set `storageClassName`
+   in `base/storage.yaml` if your default class is RWO-only.
+6. **Secrets** — set strong `RULES_ENGINE_API_KEY`, `INTERNAL_API_KEY`,
+   `JWT_SECRET`, `SESSION_SECRET` in `.env` before deploying. For a vault, see
+   `docs/SECRETS.md` (`SECRETS_PROVIDER`).
+7. **Login RSA keys** — the backend image v1.0.0 contains
+   `keys/login_private.pem`. Generate a new pair, put it in `.env` as
+   `LOGIN_RSA_PRIVATE_KEY` / `LOGIN_RSA_PUBLIC_KEY` (env wins over the baked
+   files), rebuild the frontend with the matching `VITE_LOGIN_RSA_PUBLIC_KEY`,
+   and add `keys` to `life-claim-backend/.dockerignore`.
+8. **Migrations** — the DB is shared with the existing deployment; only run
+   pending ones:
+   ```bash
+   kubectl -n life-claim exec deploy/backend -- npm run migrate:status
+   kubectl -n life-claim exec deploy/backend -- npm run migrate
+   ```
 
-## Using a registry (real cluster)
-
-Push the images and set the tags in `kustomization.yaml` (`images:` block):
+## Release a new version
 
 ```bash
-docker tag  life-claim-backend:latest  ghcr.io/OWNER/REPO/life-claim-backend:v2.0.0
-docker push ghcr.io/OWNER/REPO/life-claim-backend:v2.0.0     # repeat for frontend + rules
+docker build -t guptasunil05/life-claim-backend:v1.0.1 ./life-claim-backend
+docker push guptasunil05/life-claim-backend:v1.0.1
 ```
-
-Then uncomment + edit the `images:` overrides in `kustomization.yaml` and
-`kubectl apply -k deploy/k8s` again.
-
----
+Set `newTag: v1.0.1` for that image in the overlay's `kustomization.yaml`, then
+re-run the deploy script. Roll back:
+```bash
+kubectl -n life-claim rollout undo deployment/backend
+```
 
 ## Handy commands
 
 ```bash
-kubectl -n life-claim get all                       # everything
-kubectl -n life-claim logs deploy/backend -f        # backend logs
-kubectl -n life-claim logs deploy/rules -f          # rules engine logs
-kubectl -n life-claim rollout restart deploy/backend
-kubectl delete -k deploy/k8s                         # tear everything down
+kubectl -n life-claim get pods,svc,ingress
+kubectl -n life-claim logs deploy/backend -f
+kubectl -n life-claim logs deploy/rules -f
+kubectl -n life-claim describe pod <pod-name>
+kubectl delete -k deploy/k8s/overlays/local          # remove everything
 ```
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| `ImagePullBackOff` | Tag not on Docker Hub, or repo private → add an image pull secret |
+| `CreateContainerConfigError` | Secret `life-claim-secrets` missing → run the deploy script |
+| backend `0/1 Running` | `/api/health/ready` failing — DB/Redis on 192.168.60.62 unreachable from the cluster; check `kubectl logs deploy/backend` |
+| PVC `Pending` | No ReadWriteMany storage class → see checklist item 5 |
+| Login returns "Secure transport required" | Production overlay reached over plain HTTP — use the HTTPS Ingress, or the `local` overlay |
+| minikube: `apiserver process never appeared` / `bootstrap-kubelet.conf: no such file` | Stale old cluster: `minikube delete`, then `minikube start --driver=docker --memory=4096 --cpus=2` |
+| Docker Desktop: `detected cgroup v1` | Add `kernelCommandLine = cgroup_no_v1=all` under `[wsl2]` in `%USERPROFILE%\.wslconfig`, `wsl --shutdown`, restart Docker Desktop |

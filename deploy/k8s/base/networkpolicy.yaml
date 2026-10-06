@@ -1,0 +1,66 @@
+# Network segmentation (docs/SERVICE_EXPOSURE.md): no pod accepts traffic
+# unless allowed below. Enforced only when the cluster CNI supports
+# NetworkPolicy (Calico, Cilium, ...). Egress stays open: backend and worker
+# must reach MySQL, Redis, RabbitMQ, Keycloak, Alfresco, TXN API etc. outside
+# the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Browser-facing pods accept traffic from the ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-ingress-controller
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [frontend, backend] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+---
+# frontend nginx -> backend (/api proxy); Prometheus in `monitoring` may scrape /api/metrics.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-from-frontend-and-monitoring
+spec:
+  podSelector:
+    matchLabels: { app: backend }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: frontend }
+      ports:
+        - { port: 3010 }
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - { port: 3010 }
+---
+# Rules engine is backend-only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rules-from-backend
+spec:
+  podSelector:
+    matchLabels: { app: rules }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: backend }
+      ports:
+        - { port: 8095 }

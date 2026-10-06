@@ -1,0 +1,48 @@
+# RabbitMQ notification consumer — same image as the backend, different command.
+# Pool/decision/payout notifications are only delivered while this runs.
+# No HTTP port, so no probes: the process exits on a fatal broker error and
+# Kubernetes restarts it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels: { app: worker }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: worker
+          image: guptasunil05/life-claim-backend:v1.0.0
+          imagePullPolicy: IfNotPresent
+          command: ["node", "src/workers/notificationWorker.js"]
+          envFrom:
+            - secretRef: { name: life-claim-secrets }
+            - configMapRef: { name: life-claim-config }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 384Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: attachments, mountPath: /app/src/attachments }
+            - { name: logs, mountPath: /app/logs }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: attachments, emptyDir: { sizeLimit: 256Mi } }
+        - { name: logs, emptyDir: { sizeLimit: 128Mi } }
+        - { name: tmp, emptyDir: { sizeLimit: 128Mi } }

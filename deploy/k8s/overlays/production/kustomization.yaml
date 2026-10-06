@@ -1,0 +1,30 @@
+# Production: HTTPS via Ingress, autoscaling, disruption budgets.
+#   deploy\k8s\deploy.ps1 -Env production      (Windows)
+#   ./deploy/k8s/deploy.sh production           (Linux/macOS)
+#
+# Before the first deploy, set YOUR domain in two places:
+#   1. ingress.yaml           -> claims.example.com (host + tls)
+#   2. CORS patch below       -> https://claims.example.com
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+
+# Release = bump newTag here (after docker push) and re-run the deploy script.
+images:
+  - name: guptasunil05/life-claim-backend
+    newTag: v1.0.0
+  - name: guptasunil05/life-claim-frontend
+    newTag: v1.0.0
+  - name: guptasunil05/life-claim-rules
+    newTag: v1.0.0
+
+patches:
+  - target: { kind: ConfigMap, name: life-claim-config }
+    patch: |-
+      - op: replace
+        path: /data/CORS_ALLOWED_ORIGINS
+        value: "https://claims.example.com"

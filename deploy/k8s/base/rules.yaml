@@ -1,0 +1,70 @@
+# Drools rules engine (Java 17 / Spring Boot) — image guptasunil05/life-claim-rules,
+# port 8095. Internal only: called by the backend with X-Internal-Api-Key.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rules
+  labels: { app: rules }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: rules }
+  template:
+    metadata:
+      labels: { app: rules }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100               # `app` user baked into the image
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: rules
+          image: guptasunil05/life-claim-rules:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8095 }
+          env:
+            - name: RULES_ENGINE_API_KEY   # must equal the backend's value (same Secret)
+              valueFrom:
+                secretKeyRef: { name: life-claim-secrets, key: RULES_ENGINE_API_KEY, optional: true }
+            - name: JAVA_OPTS
+              value: "-XX:MaxRAMPercentage=75.0 -Djava.io.tmpdir=/tmp"
+          startupProbe:                # JVM start + Drools compile take ~30-60 s
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rules            # backend reaches it at http://rules:8095 (ConfigMap)
+  labels: { app: rules }
+spec:
+  selector: { app: rules }
+  ports:
+    - { name: http, port: 8095, targetPort: http }

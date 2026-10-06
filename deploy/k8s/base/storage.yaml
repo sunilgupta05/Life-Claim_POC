@@ -1,0 +1,15 @@
+# Organisation logo uploads (uploads/branding, served at /branding) — the only
+# file data the backend keeps on its own disk; claim documents go to Alfresco.
+# ReadWriteMany because several backend replicas share it. On a cluster without
+# an RWX storage class (NFS, EFS, Azure Files, Longhorn, ...) set
+# storageClassName below, or run the backend with a single replica.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-uploads
+spec:
+  accessModes: [ReadWriteMany]
+  # storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 1Gi

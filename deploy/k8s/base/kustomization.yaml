@@ -1,0 +1,19 @@
+# Base manifests shared by every environment. Don't apply this folder directly —
+# use deploy/k8s/deploy.ps1 (or deploy.sh), or an overlay:
+#   kubectl apply -k deploy/k8s/overlays/production
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: life-claim
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: life-claim
+    includeSelectors: false
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - storage.yaml
+  - rules.yaml
+  - backend.yaml
+  - worker.yaml
+  - frontend.yaml
+  - networkpolicy.yaml

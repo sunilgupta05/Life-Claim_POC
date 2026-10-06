@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: life-claim
+  labels:
+    # Pod Security Admission. "baseline" is enforced because the frontend image
+    # (nginx:alpine) starts as root to bind port 80; backend, worker and rules
+    # already satisfy "restricted", which is reported as a warning only.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

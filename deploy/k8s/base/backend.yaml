@@ -1,0 +1,95 @@
+# Express API (/api/*) — image guptasunil05/life-claim-backend, port 3010.
+# Stateless apart from logo uploads (PVC): sessions live in Redis (REDIS_URL
+# from .env), so it scales horizontally.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels: { app: backend }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+      annotations:
+        # /api/metrics is internal-only (requireInternal allows RFC-1918 pod IPs).
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3010"
+        prometheus.io/path: /api/metrics
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000              # `node` user baked into the image
+        runAsGroup: 1000
+        fsGroup: 1000                # makes the uploads PVC writable
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: backend }
+      containers:
+        - name: backend
+          image: guptasunil05/life-claim-backend:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 3010 }
+          envFrom:
+            - secretRef: { name: life-claim-secrets }     # life-claim-backend/.env
+            - configMapRef: { name: life-claim-config }   # listed last -> wins
+          startupProbe:
+            httpGet: { path: /api/health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:              # checks DB + dependencies
+            httpGet: { path: /api/health/ready, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:               # process only — a DB outage must not restart pods
+            httpGet: { path: /api/health/live, port: http }
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          lifecycle:
+            preStop:                   # let Service/Ingress drop the pod before SIGTERM
+              exec: { command: ["sleep", "10"] }
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "1", memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: uploads, mountPath: /app/uploads }              # org logos (persistent)
+            - { name: files, mountPath: /app/files }                  # upload staging before Alfresco
+            - { name: attachments, mountPath: /app/src/attachments }  # inbound mail attachments
+            - { name: logs, mountPath: /app/logs }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: uploads
+          persistentVolumeClaim: { claimName: backend-uploads }
+        - { name: files, emptyDir: { sizeLimit: 512Mi } }
+        - { name: attachments, emptyDir: { sizeLimit: 256Mi } }
+        - { name: logs, emptyDir: { sizeLimit: 256Mi } }
+        - { name: tmp, emptyDir: { sizeLimit: 256Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend          # fixed name: the frontend image's nginx proxies to http://backend:3010
+  labels: { app: backend }
+spec:
+  selector: { app: backend }
+  ports:
+    - { name: http, port: 3010, targetPort: http }

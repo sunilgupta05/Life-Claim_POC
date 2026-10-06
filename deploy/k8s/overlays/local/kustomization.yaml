@@ -1,0 +1,36 @@
+# Local test cluster (minikube / Docker Desktop): one replica each, no Ingress,
+# plain HTTP through `kubectl port-forward` on http://localhost:8088.
+#   deploy\k8s\deploy.ps1 -Env local
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+
+images:
+  - name: guptasunil05/life-claim-backend
+    newTag: v1.0.0
+  - name: guptasunil05/life-claim-frontend
+    newTag: v1.0.0
+  - name: guptasunil05/life-claim-rules
+    newTag: v1.0.0
+
+replicas:
+  - name: backend
+    count: 1
+  - name: frontend
+    count: 1
+
+patches:
+  # NODE_ENV=production rejects login over plain HTTP and sets Secure-only
+  # cookies — neither works through port-forward, so relax both locally.
+  - target: { kind: ConfigMap, name: life-claim-config }
+    patch: |-
+      - op: replace
+        path: /data/NODE_ENV
+        value: "development"
+      - op: replace
+        path: /data/REQUIRE_HTTPS_AUTH
+        value: "false"
+      - op: replace
+        path: /data/CORS_ALLOWED_ORIGINS
+        value: "http://localhost:8088,http://127.0.0.1:8088"

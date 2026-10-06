@@ -1,0 +1,40 @@
+# Public entry point (ingress-nginx). TLS terminates here.
+#   /api, /branding -> backend:3010   (direct, so X-Forwarded-Proto=https reaches
+#                                     the backend and HTTPS-only login works)
+#   /               -> frontend:80
+# Certificate: cert-manager issues `life-claim-tls` via the ClusterIssuer named
+# below (deploy/k8s/optional/cluster-issuer.yaml). Without cert-manager, create
+# the secret yourself:
+#   kubectl -n life-claim create secret tls life-claim-tls --cert=fullchain.pem --key=privkey.pem
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: life-claim
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "12m"      # backend accepts 10 MB uploads
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [claims.example.com]
+      secretName: life-claim-tls
+  rules:
+    - host: claims.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: backend, port: { number: 3010 } }
+          - path: /branding
+            pathType: Prefix
+            backend:
+              service: { name: backend, port: { number: 3010 } }
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: frontend, port: { number: 80 } }
