@@ -48,6 +48,7 @@ spec:
             - configMapRef: { name: life-claim-config }   # listed last -> wins
           startupProbe:
             httpGet: { path: /api/health/live, port: http }
+            timeoutSeconds: 5
             periodSeconds: 5
             failureThreshold: 24
           readinessProbe:              # checks DB + dependencies

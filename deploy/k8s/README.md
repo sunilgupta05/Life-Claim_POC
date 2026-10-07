@@ -10,8 +10,10 @@ One command deploys the whole app — **backend** (API), **worker** (notificatio
 | rules | `guptasunil05/life-claim-rules:v1.0.0` | 8095 | `rules:8095` |
 | frontend | `guptasunil05/life-claim-frontend:v1.0.0` | 80 | `frontend:80` |
 
-MySQL, Redis, RabbitMQ, Keycloak, the Transaction API and Alfresco are **not**
-deployed here — the app uses the existing ones configured in
+**RabbitMQ** (notification queue) runs in the cluster for the `server` and
+`local` overlays (`addons/rabbitmq`, image `rabbitmq:3.13-management`, using
+`RABBITMQ_USER` / `RABBITMQ_PASS` from `.env`). MySQL, Redis, Keycloak, the
+Transaction API and Alfresco are **not** deployed here — the app uses the existing ones configured in
 `life-claim-backend/.env` (currently `192.168.60.62`). The cluster must be able
 to reach them.
 
@@ -93,6 +95,7 @@ deploy/k8s/
 │   ├── rules.yaml                Drools Deployment + Service
 │   ├── frontend.yaml             nginx Deployment + Service
 │   └── networkpolicy.yaml        default-deny + allow-lists
+├── addons/rabbitmq/              in-cluster broker (server + local overlays)
 ├── overlays/
 │   ├── production/               Ingress (TLS), HPA, PDB, domain CORS, image tags
 │   ├── server/                   office server 192.168.60.62, http://192.168.60.62:8088
@@ -172,6 +175,7 @@ kubectl delete -k deploy/k8s/overlays/local          # remove everything
 | `CreateContainerConfigError` | Secret `life-claim-secrets` missing → run the deploy script |
 | backend `0/1 Running` | `/api/health/ready` failing. Check: `kubectl -n life-claim exec deploy/backend -- printenv DB_HOST` — must not be `localhost` (re-run deploy.ps1, it rewrites it) and must be reachable from the pod |
 | worker `CrashLoopBackOff` | `kubectl -n life-claim logs deploy/worker` — usually RabbitMQ unreachable (`RABBITMQ_URL` in `.env`) |
+| Setting ignored in the cluster | The admin **Settings** page stores values in the DB table `app_config`, which wins over `.env` and the ConfigMap. A saved `RULES_ENGINE_URL` / `KEYCLOAK_URL` / `RABBITMQ_URL` with `localhost` breaks pods — clear it there |
 | Portal not opening from other PCs | `Get-ScheduledTask LifeClaim-Portal`, read `C:\ProgramData\LifeClaim\expose.log`, check firewall rule "Life Claim portal 8088" |
 | minikube `NotReady`, `cni plugin not initialized` | `minikube delete --all --purge`, then start with `--cni=bridge` |
 | PVC `Pending` | No ReadWriteMany storage class → see checklist item 5 |

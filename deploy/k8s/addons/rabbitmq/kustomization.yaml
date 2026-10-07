@@ -1,0 +1,9 @@
+# In-cluster RabbitMQ for the notification queue (backend publishes, worker consumes).
+# Used by the `server` and `local` overlays, which also point RABBITMQ_URL at it.
+# The `production` overlay does not include it — there RABBITMQ_URL in .env
+# points at the managed/external broker.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: life-claim
+resources:
+  - rabbitmq.yaml

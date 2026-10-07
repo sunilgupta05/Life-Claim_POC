@@ -113,7 +113,10 @@ foreach ($d in 'backend', 'worker', 'rules') {
 Remove-Item $patchFile -ErrorAction SilentlyContinue
 
 Step "Waiting for rollout (first pull of the images can take a few minutes)"
-foreach ($d in 'rules', 'backend', 'worker', 'frontend') {
+$deployments = kubectl -n $Namespace get deployments -o name | ForEach-Object { $_ -replace '^deployment\.apps/', '' }
+# Broker first (the worker needs it), then the app tier.
+$order = @('rabbitmq', 'rules', 'backend', 'worker', 'frontend') | Where-Object { $deployments -contains $_ }
+foreach ($d in $order) {
   kubectl -n $Namespace rollout status deployment/$d --timeout=600s
   if ($LASTEXITCODE -ne 0) {
     Write-Host "`n$d did not become ready. Diagnose with:" -ForegroundColor Red

@@ -38,13 +38,16 @@ spec:
               value: "-XX:MaxRAMPercentage=75.0 -Djava.io.tmpdir=/tmp"
           startupProbe:                # JVM start + Drools compile take ~30-60 s
             httpGet: { path: /api/health, port: http }
+            timeoutSeconds: 5
             periodSeconds: 5
             failureThreshold: 36
           readinessProbe:
             httpGet: { path: /api/health, port: http }
+            timeoutSeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet: { path: /api/health, port: http }
+            timeoutSeconds: 5
             periodSeconds: 20
             failureThreshold: 3
           resources:

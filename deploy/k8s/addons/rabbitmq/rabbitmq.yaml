@@ -1,0 +1,111 @@
+# RabbitMQ broker (AMQP 5672, management UI 15672 — both internal only).
+#
+# Credentials = RABBITMQ_USER / RABBITMQ_PASS from the life-claim-secrets Secret
+# (i.e. life-claim-backend/.env), so backend, worker and broker always agree.
+# `loopback_users = none` lets that user connect over the network even when it
+# is `guest` (RabbitMQ otherwise allows guest from localhost only).
+#
+# Single node with a fixed node name (rabbit@localhost) so the durable queues on
+# the PVC survive pod restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels: { app: rabbitmq }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy: { type: Recreate }       # one writer on the RWO volume
+  selector:
+    matchLabels: { app: rabbitmq }
+  template:
+    metadata:
+      labels: { app: rabbitmq }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 999                  # `rabbitmq` user in the image owns the data dir
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: amqp, containerPort: 5672 }
+            - { name: management, containerPort: 15672 }
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef: { name: life-claim-secrets, key: RABBITMQ_USER, optional: true }
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef: { name: life-claim-secrets, key: RABBITMQ_PASS, optional: true }
+            - name: RABBITMQ_NODENAME
+              value: rabbit@localhost
+            - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
+              value: "-rabbit loopback_users []"
+          startupProbe:
+            exec: { command: ["rabbitmq-diagnostics", "-q", "ping"] }
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            exec: { command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"] }
+            periodSeconds: 15
+            timeoutSeconds: 10
+          livenessProbe:
+            exec: { command: ["rabbitmq-diagnostics", "-q", "ping"] }
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 4
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/rabbitmq }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: rabbitmq-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  labels: { app: rabbitmq }
+spec:
+  selector: { app: rabbitmq }
+  ports:
+    - { name: amqp, port: 5672, targetPort: amqp }
+    - { name: management, port: 15672, targetPort: management }
+---
+# Only the backend (publisher, integration health check) and worker (consumer)
+# may reach the broker.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rabbitmq-from-backend-and-worker
+spec:
+  podSelector:
+    matchLabels: { app: rabbitmq }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [backend, worker] }
+      ports:
+        - { port: 5672 }
+        - { port: 15672 }

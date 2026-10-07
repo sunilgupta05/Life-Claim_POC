@@ -36,9 +36,11 @@ spec:
             - { name: http, containerPort: 80 }
           readinessProbe:
             httpGet: { path: /, port: http }
+            timeoutSeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet: { path: /, port: http }
+            timeoutSeconds: 5
             periodSeconds: 20
             failureThreshold: 3
           lifecycle:
