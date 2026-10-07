@@ -20,24 +20,64 @@ to reach them.
 From the repo root, with `kubectl` pointing at a working cluster
 (`kubectl get nodes` shows `Ready`):
 
-```powershell
-# Local test cluster (minikube / Docker Desktop) — opens http://localhost:8088
-.\deploy\k8s\deploy.ps1 -Env local -PortForward
+| Where | Command | Portal URL |
+|-------|---------|------------|
+| **Office server 192.168.60.62** (Windows + minikube) | `.\deploy\k8s\deploy.ps1 -Env server` | `http://192.168.60.62:8088` from any PC on the LAN |
+| Laptop test | `.\deploy\k8s\deploy.ps1 -Env local -PortForward` | `http://localhost:8088` |
+| Real cluster + domain | `.\deploy\k8s\deploy.ps1 -Env production` | `https://<your-domain>` |
 
-# Production (Ingress + HTTPS + autoscaling)
-.\deploy\k8s\deploy.ps1 -Env production
-```
-
-Linux/macOS: `./deploy/k8s/deploy.sh local` or `./deploy/k8s/deploy.sh production`.
+If PowerShell blocks scripts, prefix with
+`powershell -ExecutionPolicy Bypass -File`. Linux/macOS: `./deploy/k8s/deploy.sh <env>`.
 
 The script:
-1. creates namespace `life-claim`
-2. creates/updates Secret `life-claim-secrets` from `life-claim-backend/.env` (never committed)
-3. `kubectl apply -k deploy/k8s/overlays/<env>` — creates every Deployment, Service, ConfigMap, PVC, NetworkPolicy (+ Ingress, HPA, PDB in production)
-4. restarts backend/worker/rules only if `.env` changed
-5. waits until all pods are ready and prints how to open the app
+1. on minikube, loads any missing image into the cluster (pulls it on the host first)
+2. creates namespace `life-claim`
+3. creates/updates Secret `life-claim-secrets` from `life-claim-backend/.env`
+   (never committed). For `server`/`local`, `localhost` / `127.0.0.1` hosts in
+   `.env` are rewritten to the real host (`192.168.60.62` /
+   `host.minikube.internal`) — inside a pod, `localhost` is the pod itself
+4. `kubectl apply -k deploy/k8s/overlays/<env>`
+5. restarts backend/worker/rules only if the effective `.env` changed
+6. waits until all pods are ready and prints how to open the app
 
 It is idempotent — re-run it after editing `.env` or releasing a new image tag.
+
+## Server 192.168.60.62 — portal for the whole office, 24x7
+
+One-time setup on the server:
+
+1. Docker Desktop → Settings → General → **Start Docker Desktop when you sign in** = on.
+2. minikube cluster (no internet needed inside it):
+   ```powershell
+   minikube start --driver=docker --memory=4096 --cpus=2 --cni=bridge
+   ```
+3. Deploy:
+   ```powershell
+   cd C:\projects\claude-poc-fresh
+   powershell -ExecutionPolicy Bypass -File .\deploy\k8s\deploy.ps1 -Env server
+   ```
+4. Publish to the LAN — **PowerShell as Administrator**, once:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\deploy\k8s\server\install-autostart.ps1
+   ```
+   This opens port 8088 in Windows Firewall and registers the scheduled task
+   `LifeClaim-Portal`, which runs `server/expose.ps1` hidden at sign-in: it
+   starts minikube after a reboot and keeps `svc/frontend` published on
+   `0.0.0.0:8088`, reconnecting automatically. Log:
+   `C:\ProgramData\LifeClaim\expose.log`.
+
+Open **http://192.168.60.62:8088** from any PC on the network. The server must
+stay signed in (a locked screen is fine). No `npm start` / `npm run dev` /
+`start-rules.bat` is needed — Kubernetes runs all four components.
+
+Updates later: change `.env` or bump `newTag` in `overlays/server/kustomization.yaml`,
+then re-run step 3. Uninstall the publisher: `install-autostart.ps1 -Uninstall`.
+
+The `server` overlay is the production base (probes, non-root, read-only FS,
+NetworkPolicies, 2 backend + 2 frontend replicas, zero-downtime rollouts) over
+plain HTTP, so it keeps `NODE_ENV=development` — with `production` the backend
+refuses login over HTTP. Full production mode needs HTTPS: use the
+`production` overlay with a domain.
 
 ## Layout
 
@@ -55,7 +95,11 @@ deploy/k8s/
 │   └── networkpolicy.yaml        default-deny + allow-lists
 ├── overlays/
 │   ├── production/               Ingress (TLS), HPA, PDB, domain CORS, image tags
+│   ├── server/                   office server 192.168.60.62, http://192.168.60.62:8088
 │   └── local/                    1 replica each, HTTP via port-forward
+├── server/
+│   ├── install-autostart.ps1     firewall + scheduled task (run once as Administrator)
+│   └── expose.ps1                keeps the portal published on :8088 (started by the task)
 └── optional/
     ├── cluster-issuer.yaml       Let's Encrypt issuer for cert-manager
     └── data.yaml                 in-cluster MySQL/RabbitMQ/Redis (not used by default)
@@ -126,7 +170,10 @@ kubectl delete -k deploy/k8s/overlays/local          # remove everything
 |---------|-------------|
 | `ImagePullBackOff` | Tag not on Docker Hub, or repo private → add an image pull secret |
 | `CreateContainerConfigError` | Secret `life-claim-secrets` missing → run the deploy script |
-| backend `0/1 Running` | `/api/health/ready` failing — DB/Redis on 192.168.60.62 unreachable from the cluster; check `kubectl logs deploy/backend` |
+| backend `0/1 Running` | `/api/health/ready` failing. Check: `kubectl -n life-claim exec deploy/backend -- printenv DB_HOST` — must not be `localhost` (re-run deploy.ps1, it rewrites it) and must be reachable from the pod |
+| worker `CrashLoopBackOff` | `kubectl -n life-claim logs deploy/worker` — usually RabbitMQ unreachable (`RABBITMQ_URL` in `.env`) |
+| Portal not opening from other PCs | `Get-ScheduledTask LifeClaim-Portal`, read `C:\ProgramData\LifeClaim\expose.log`, check firewall rule "Life Claim portal 8088" |
+| minikube `NotReady`, `cni plugin not initialized` | `minikube delete --all --purge`, then start with `--cni=bridge` |
 | PVC `Pending` | No ReadWriteMany storage class → see checklist item 5 |
 | Login returns "Secure transport required" | Production overlay reached over plain HTTP — use the HTTPS Ingress, or the `local` overlay |
 | minikube: `apiserver process never appeared` / `bootstrap-kubelet.conf: no such file` | Stale old cluster: `minikube delete`, then `minikube start --driver=docker --memory=4096 --cpus=2` |

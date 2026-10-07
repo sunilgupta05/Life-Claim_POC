@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # One-command Kubernetes deploy for Life Claims — same steps as deploy.ps1.
-#   ./deploy/k8s/deploy.sh [production|local] [path/to/backend.env]
+#   ./deploy/k8s/deploy.sh [production|server|local] [path/to/backend.env]
 # Idempotent: re-run after changing .env or bumping image tags in the overlay.
+# HOST_ADDRESS=<ip> overrides where .env "localhost" services live (server/local).
 set -euo pipefail
 
 ENVIRONMENT="${1:-production}"
@@ -13,8 +14,15 @@ OVERLAY="$K8S_DIR/overlays/$ENVIRONMENT"
 
 step() { printf '\n==> %s\n' "$*"; }
 
-[[ "$ENVIRONMENT" == production || "$ENVIRONMENT" == local ]] || { echo "usage: $0 [production|local] [env-file]"; exit 2; }
+[[ "$ENVIRONMENT" =~ ^(production|server|local)$ ]] || { echo "usage: $0 [production|server|local] [env-file]"; exit 2; }
 [[ -f "$ENV_FILE" ]] || { echo "Backend env file not found: $ENV_FILE"; exit 1; }
+
+# Inside a pod `localhost` is the pod itself: point .env localhost hosts at the real host.
+case "$ENVIRONMENT" in
+  server) HOST_ADDR="${HOST_ADDRESS:-192.168.60.62}" ;;
+  local)  HOST_ADDR="${HOST_ADDRESS:-host.minikube.internal}" ;;
+  *)      HOST_ADDR="${HOST_ADDRESS:-}" ;;
+esac
 
 step "Checks"
 kubectl get nodes
@@ -24,14 +32,20 @@ step "Namespace"
 kubectl apply -f "$K8S_DIR/base/namespace.yaml"
 
 step "Secret life-claim-secrets (from .env)"
-kubectl -n "$NS" create secret generic life-claim-secrets --from-env-file="$ENV_FILE" \
+SECRET_ENV="$ENV_FILE"
+if [[ -n "$HOST_ADDR" ]]; then
+  SECRET_ENV="$(mktemp)"
+  sed -E "s#([=/@])(localhost|127\.0\.0\.1)([:/,[:space:]]|\$)#\1${HOST_ADDR}\3#g" "$ENV_FILE" > "$SECRET_ENV"
+fi
+kubectl -n "$NS" create secret generic life-claim-secrets --from-env-file="$SECRET_ENV" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 step "Apply manifests ($OVERLAY)"
 kubectl apply -k "$OVERLAY"
 
 step "Roll pods if .env changed"
-HASH="$(sha256sum "$ENV_FILE" | cut -c1-16)"
+HASH="$(sha256sum "$SECRET_ENV" | cut -c1-16)"
+[[ "$SECRET_ENV" != "$ENV_FILE" ]] && rm -f "$SECRET_ENV"
 for d in backend worker rules; do
   kubectl -n "$NS" patch deployment "$d" --type merge \
     -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"life-claim/env-hash\":\"$HASH\"}}}}}" >/dev/null
@@ -48,7 +62,9 @@ done
 
 step "Done"
 kubectl -n "$NS" get pods,svc,ingress
-if [[ "$ENVIRONMENT" == local ]]; then
+if [[ "$ENVIRONMENT" == server ]]; then
+  echo "Publish on the LAN:  kubectl -n $NS port-forward --address 0.0.0.0 svc/frontend 8088:80   ->  http://$HOST_ADDR:8088"
+elif [[ "$ENVIRONMENT" == local ]]; then
   echo "Open the app:  kubectl -n $NS port-forward svc/frontend 8088:80   ->  http://localhost:8088"
 else
   echo "Point your domain's DNS at the ingress controller's external IP, then open https://<your-domain>"

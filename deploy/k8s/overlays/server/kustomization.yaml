@@ -1,0 +1,41 @@
+# On-prem server 192.168.60.62 (Windows + Docker Desktop + minikube).
+# Portal for the whole office LAN: http://192.168.60.62:8088
+#
+#   .\deploy\k8s\deploy.ps1 -Env server                    # deploy / update
+#   .\deploy\k8s\server\install-autostart.ps1              # once, as Administrator:
+#                                                          # firewall + 24x7 exposure
+#
+# Differences from `production`:
+#  - no Ingress / HPA (their controller images can't be pulled on this network);
+#    the portal is published on :8088 by server/expose.ps1 instead
+#  - plain HTTP, so NODE_ENV stays "development": with "production" the backend
+#    rejects login over HTTP and sets Secure-only cookies. Move to the
+#    `production` overlay (HTTPS + domain) to switch that on.
+# Everything else (probes, non-root, read-only FS, NetworkPolicies, 2 replicas
+# for backend/frontend, zero-downtime rolling updates) is the production base.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+
+# Release = bump newTag here (after docker push / minikube image load) and re-run deploy.ps1.
+images:
+  - name: guptasunil05/life-claim-backend
+    newTag: v1.0.0
+  - name: guptasunil05/life-claim-frontend
+    newTag: v1.0.0
+  - name: guptasunil05/life-claim-rules
+    newTag: v1.0.0
+
+patches:
+  - target: { kind: ConfigMap, name: life-claim-config }
+    patch: |-
+      - op: replace
+        path: /data/NODE_ENV
+        value: "development"
+      - op: replace
+        path: /data/REQUIRE_HTTPS_AUTH
+        value: "false"
+      - op: replace
+        path: /data/CORS_ALLOWED_ORIGINS
+        value: "http://192.168.60.62:8088,http://localhost:8088,http://127.0.0.1:8088"
