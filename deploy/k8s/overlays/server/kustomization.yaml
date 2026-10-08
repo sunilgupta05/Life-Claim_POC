@@ -1,5 +1,6 @@
 # On-prem server 192.168.60.62 (Windows + Docker Desktop + minikube).
-# Portal for the whole office LAN: http://192.168.60.62:8088
+# Portal for the whole office LAN:  https://192.168.60.62:8443
+#                                   (http://192.168.60.62:8088 redirects there)
 #
 #   .\deploy\k8s\deploy.ps1 -Env server                    # deploy / update
 #   .\deploy\k8s\server\install-autostart.ps1              # once, as Administrator:
@@ -7,10 +8,12 @@
 #
 # Differences from `production`:
 #  - no Ingress / HPA (their controller images can't be pulled on this network);
-#    the portal is published on :8088 by server/expose.ps1 instead
-#  - plain HTTP, so NODE_ENV stays "development": with "production" the backend
-#    rejects login over HTTP and sets Secure-only cookies. Move to the
-#    `production` overlay (HTTPS + domain) to switch that on.
+#    addons/edge (nginx) terminates TLS with a self-signed cert and
+#    server/expose.ps1 publishes it on :8088/:8443
+#  - NODE_ENV stays "development": "production" also disables the reCAPTCHA
+#    bypass (the site key is not registered for 192.168.60.62, so login would be
+#    blocked) and the dev defaults for DMS/e-mail. Session cookies are Secure
+#    either way, which is why the portal must be served over HTTPS.
 # Everything else (probes, non-root, read-only FS, NetworkPolicies, 2 replicas
 # for backend/frontend, zero-downtime rolling updates) is the production base.
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -18,6 +21,7 @@ kind: Kustomization
 resources:
   - ../../base
   - ../../addons/rabbitmq          # in-cluster broker for the notification worker
+  - ../../addons/edge              # HTTPS entry point
 
 # Release = bump newTag here (after docker push / minikube image load) and re-run deploy.ps1.
 images:
@@ -39,7 +43,7 @@ patches:
         value: "false"
       - op: replace
         path: /data/CORS_ALLOWED_ORIGINS
-        value: "http://192.168.60.62:8088,http://localhost:8088,http://127.0.0.1:8088"
+        value: "https://192.168.60.62:8443,http://192.168.60.62:8088,https://localhost:8443,http://localhost:8088,http://127.0.0.1:8088"
       - op: add
         path: /data/RABBITMQ_URL
         value: "http://rabbitmq:15672/"   # backend derives amqp://<RABBITMQ_USER>:<RABBITMQ_PASS>@rabbitmq:<RABBITMQ_AMQP_PORT>

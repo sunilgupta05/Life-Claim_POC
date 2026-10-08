@@ -96,6 +96,34 @@ if ($HostAddress) {
 kubectl -n $Namespace create secret generic life-claim-secrets --from-env-file="$secretEnv" --dry-run=client -o yaml | kubectl apply -f -
 Check 'secret'
 
+$tlsCrt = $null
+if ($Env -eq 'server') {
+  # Login needs HTTPS on a LAN address (the backend's session cookies are Secure).
+  # Put your own tls.crt / tls.key in deploy\k8s\server\tls\ to use a real cert.
+  Step "TLS certificate for https://${HostAddress}:8443"
+  $tlsDir = Join-Path $K8sDir 'server\tls'
+  $tlsCrt = Join-Path $tlsDir 'tls.crt'
+  $tlsKey = Join-Path $tlsDir 'tls.key'
+  if ((Test-Path $tlsCrt) -and (Test-Path $tlsKey)) {
+    Write-Host "Using existing certificate $tlsCrt"
+  } else {
+    New-Item -ItemType Directory -Force -Path $tlsDir | Out-Null
+    Write-Host "Generating a self-signed certificate for $HostAddress (valid 825 days)"
+    $opensslImage = 'rabbitmq:3.13-management'   # already on the host; ships the openssl CLI
+    $ErrorActionPreference = 'Continue'           # openssl/docker report progress on stderr
+    docker image inspect $opensslImage *> $null
+    if ($LASTEXITCODE -ne 0) { docker pull $opensslImage }
+    docker run --rm -v "${tlsDir}:/out" --entrypoint openssl $opensslImage req -x509 -newkey rsa:2048 -nodes `
+      -keyout /out/tls.key -out /out/tls.crt -days 825 -subj "/CN=$HostAddress" `
+      -addext "subjectAltName=IP:$HostAddress,IP:127.0.0.1,DNS:localhost"
+    $genExit = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    if ($genExit -ne 0 -or -not (Test-Path $tlsCrt)) { throw 'Certificate generation failed.' }
+  }
+  kubectl -n $Namespace create secret tls life-claim-tls --cert="$tlsCrt" --key="$tlsKey" --dry-run=client -o yaml | kubectl apply -f -
+  Check 'tls secret'
+}
+
 Step "Apply manifests ($Overlay)"
 kubectl apply -k $Overlay
 Check 'kubectl apply -k'
@@ -115,12 +143,23 @@ foreach ($d in 'backend', 'worker', 'rules') {
   kubectl -n $Namespace patch deployment $d --type merge --patch-file $patchFile | Out-Null
   Check "patch $d"
 }
+if ($tlsCrt) {
+  # nginx reads its config and certificate only at start-up as well.
+  $edgeConf = kubectl -n $Namespace get configmap edge-nginx -o jsonpath='{.data}'
+  Check 'read edge configmap'
+  $edgeBytes = [Text.Encoding]::UTF8.GetBytes([IO.File]::ReadAllText($tlsCrt) + "`n" + ($edgeConf -join "`n"))
+  $edgeHash = (($sha.ComputeHash($edgeBytes) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 16)
+  "{`"spec`":{`"template`":{`"metadata`":{`"annotations`":{`"life-claim/config-hash`":`"$edgeHash`"}}}}}" |
+    Set-Content -Path $patchFile -Encoding ascii
+  kubectl -n $Namespace patch deployment edge --type merge --patch-file $patchFile | Out-Null
+  Check 'patch edge'
+}
 Remove-Item $patchFile -ErrorAction SilentlyContinue
 
 Step "Waiting for rollout (first pull of the images can take a few minutes)"
 $deployments = kubectl -n $Namespace get deployments -o name | ForEach-Object { $_ -replace '^deployment\.apps/', '' }
 # Broker first (the worker needs it), then the app tier.
-$order = @('rabbitmq', 'rules', 'backend', 'worker', 'frontend') | Where-Object { $deployments -contains $_ }
+$order = @('rabbitmq', 'rules', 'backend', 'worker', 'frontend', 'edge') | Where-Object { $deployments -contains $_ }
 foreach ($d in $order) {
   $timeout = if ($d -eq 'rabbitmq') { '1500s' } else { '600s' }   # broker's first boot is slow on a loaded host
   kubectl -n $Namespace rollout status deployment/$d "--timeout=$timeout"
@@ -138,13 +177,15 @@ kubectl -n $Namespace get pods,svc,ingress | Out-Host
 
 if ($Env -eq 'server') {
   $task = Get-ScheduledTask -TaskName 'LifeClaim-Portal' -ErrorAction SilentlyContinue
-  if ($task) {
-    Write-Host "`nPortal: http://${HostAddress}:8088  (published 24x7 by task LifeClaim-Portal)" -ForegroundColor Green
+  $httpsRule = Get-NetFirewallRule -DisplayName 'Life Claim portal 8443' -ErrorAction SilentlyContinue
+  if ($task -and $httpsRule) {
+    Write-Host "`nPortal: https://${HostAddress}:8443  (http://${HostAddress}:8088 redirects; published 24x7 by task LifeClaim-Portal)" -ForegroundColor Green
+    Write-Host "If you just updated deploy\k8s\server\expose.ps1, re-run install-autostart.ps1 once so the task picks it up."
   } else {
-    Write-Host "`nOne-time step to publish http://${HostAddress}:8088 to the network (PowerShell as Administrator):" -ForegroundColor Yellow
+    Write-Host "`nOne-time step to publish https://${HostAddress}:8443 to the network (PowerShell as Administrator):" -ForegroundColor Yellow
     Write-Host "  powershell -ExecutionPolicy Bypass -File $K8sDir\server\install-autostart.ps1"
   }
-  if ($PortForward) { kubectl -n $Namespace port-forward --address 0.0.0.0 svc/frontend 8088:80 }
+  if ($PortForward) { kubectl -n $Namespace port-forward --address 0.0.0.0 svc/edge 8088:80 8443:443 }
 } elseif ($Env -eq 'local') {
   Write-Host "`nOpen the app:  kubectl -n $Namespace port-forward svc/frontend 8088:80   ->  http://localhost:8088" -ForegroundColor Green
   if ($PortForward) { kubectl -n $Namespace port-forward svc/frontend 8088:80 }

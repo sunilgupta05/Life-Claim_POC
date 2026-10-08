@@ -1,0 +1,14 @@
+# HTTPS entry point for the on-prem server (no ingress controller there).
+# Login needs HTTPS on a LAN address: the backend sets its session cookies with
+# the Secure flag, which browsers only keep over HTTPS (or on localhost).
+#
+#   https://<server>:8443  ->  /api, /branding -> backend:3010   / -> frontend:80
+#   http://<server>:8088   ->  301 to https://<server>:8443
+#
+# TLS secret `life-claim-tls` is created by deploy.ps1 -Env server
+# (self-signed for 192.168.60.62 unless you drop your own cert in server/tls/).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: life-claim
+resources:
+  - edge.yaml

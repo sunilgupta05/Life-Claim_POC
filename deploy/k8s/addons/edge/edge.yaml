@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edge-nginx
+data:
+  default.conf: |
+    # Plain HTTP (published on :8088) -> HTTPS (published on :8443).
+    server {
+      listen 80;
+      return 301 https://$host:8443$request_uri;
+    }
+
+    server {
+      listen 443 ssl;
+      http2 on;
+      ssl_certificate     /etc/nginx/tls/tls.crt;
+      ssl_certificate_key /etc/nginx/tls/tls.key;
+      ssl_protocols       TLSv1.2 TLSv1.3;
+      ssl_session_cache   shared:SSL:10m;
+
+      client_max_body_size 12m;            # backend accepts 10 MB uploads
+      proxy_http_version 1.1;
+      proxy_read_timeout 120s;
+      proxy_send_timeout 120s;
+      proxy_set_header Host              $host;
+      proxy_set_header X-Real-IP         $remote_addr;
+      proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto https;   # backend trusts one proxy hop (TRUST_PROXY)
+
+      # API and uploaded logos go straight to the backend.
+      location /api/      { proxy_pass http://backend:3010; }
+      location /branding/ { proxy_pass http://backend:3010; }
+      # Everything else is the SPA.
+      location /          { proxy_pass http://frontend:80; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge
+  labels: { app: edge }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: edge }
+  template:
+    metadata:
+      labels: { app: edge }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 80 }
+            - { name: https, containerPort: 443 }
+          readinessProbe:
+            tcpSocket: { port: https }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: https }
+            periodSeconds: 20
+            timeoutSeconds: 5
+          lifecycle:
+            preStop:
+              exec: { command: ["sleep", "5"] }
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 500m, memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
+          volumeMounts:
+            - { name: conf, mountPath: /etc/nginx/conf.d, readOnly: true }
+            - { name: tls, mountPath: /etc/nginx/tls, readOnly: true }
+            - { name: cache, mountPath: /var/cache/nginx }
+            - { name: run, mountPath: /run }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: conf
+          configMap: { name: edge-nginx }
+        - name: tls
+          secret: { secretName: life-claim-tls }
+        - { name: cache, emptyDir: {} }
+        - { name: run, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge
+  labels: { app: edge }
+spec:
+  selector: { app: edge }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    - { name: https, port: 443, targetPort: https }
+---
+# The edge accepts browser traffic (published by server/expose.ps1) and may
+# reach the frontend and backend.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-public
+spec:
+  podSelector:
+    matchLabels: { app: edge }
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - { port: 80 }
+        - { port: 443 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-backend-from-edge
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: [frontend, backend] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: edge }
