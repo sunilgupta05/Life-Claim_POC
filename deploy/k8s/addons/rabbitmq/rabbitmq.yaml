@@ -25,6 +25,7 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 5
+  progressDeadlineSeconds: 1500       # matches the 20 min startup budget below
   strategy: { type: Recreate }       # one writer on the RWO volume
   selector:
     matchLabels: { app: rabbitmq }
@@ -59,17 +60,19 @@ spec:
             - name: ERL_MAX_PORTS
               value: "65536"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
-              value: "+Q 65536 -rabbit loopback_users []"
+              value: "+Q 65536 +S 2:2 -rabbit loopback_users []"
             - name: RABBITMQ_CTL_ERL_ARGS
               value: "+Q 65536"
           # TCP checks on the AMQP port: the listener only opens once the broker
           # accepts connections. (`rabbitmq-diagnostics` boots a separate Erlang
           # VM per call and timed out on the busy server.)
+          # Up to 20 min: on a loaded host the first boot (metadata store init)
+          # took >5 min, and a restart mid-boot starts it over from scratch.
           startupProbe:
             tcpSocket: { port: amqp }
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 120
           readinessProbe:
             tcpSocket: { port: amqp }
             periodSeconds: 10
@@ -80,8 +83,10 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
           resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { cpu: "1", memory: 1Gi }
+            # No CPU limit: CFS throttling of Erlang's scheduler threads made boot
+            # crawl; +S 2:2 above keeps it to two scheduler threads instead.
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { memory: 1Gi }
           securityContext:
             allowPrivilegeEscalation: false
           volumeMounts:

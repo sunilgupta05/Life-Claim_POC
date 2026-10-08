@@ -56,7 +56,7 @@ step "Waiting for rollout (first image pull can take a few minutes)"
 # Broker first (the worker needs it), then the app tier.
 for d in rabbitmq rules backend worker frontend; do
   kubectl -n "$NS" get deployment "$d" >/dev/null 2>&1 || continue
-  if ! kubectl -n "$NS" rollout status "deployment/$d" --timeout=600s; then
+  if ! kubectl -n "$NS" rollout status "deployment/$d" --timeout=$([[ $d == rabbitmq ]] && echo 1500s || echo 600s); then
     echo "$d did not become ready. Diagnose with:"
     echo "  kubectl -n $NS get pods; kubectl -n $NS describe deploy/$d; kubectl -n $NS logs deploy/$d"
     exit 1

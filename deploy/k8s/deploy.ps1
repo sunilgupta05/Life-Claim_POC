@@ -122,7 +122,8 @@ $deployments = kubectl -n $Namespace get deployments -o name | ForEach-Object { 
 # Broker first (the worker needs it), then the app tier.
 $order = @('rabbitmq', 'rules', 'backend', 'worker', 'frontend') | Where-Object { $deployments -contains $_ }
 foreach ($d in $order) {
-  kubectl -n $Namespace rollout status deployment/$d --timeout=600s
+  $timeout = if ($d -eq 'rabbitmq') { '1500s' } else { '600s' }   # broker's first boot is slow on a loaded host
+  kubectl -n $Namespace rollout status deployment/$d "--timeout=$timeout"
   if ($LASTEXITCODE -ne 0) {
     Write-Host "`n$d did not become ready. Diagnose with:" -ForegroundColor Red
     Write-Host "  kubectl -n $Namespace get pods"
