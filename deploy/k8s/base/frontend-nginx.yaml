@@ -1,0 +1,43 @@
+# Overrides the nginx config baked into the frontend image (same routes) with
+# larger proxy header buffers — see the comment in the /api/ block.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx
+data:
+  default.conf: |
+    # nginx config for the Life Claims SPA (roadmap 4.2).
+    # Serves the built assets and proxies API calls to the backend container.
+    server {
+      listen 80;
+      server_name _;
+      root /usr/share/nginx/html;
+      index index.html;
+
+      # Long-cache hashed assets; never cache index.html.
+      location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+
+      # API → backend (over the private docker network, plain HTTP).
+      location /api/ {
+        proxy_pass http://backend:3010;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        # Login returns the Keycloak tokens as cookies (several KB of Set-Cookie);
+        # the default 4-8k buffer fails with "502 upstream sent too big header".
+        proxy_buffer_size       64k;
+        proxy_buffers           16 64k;
+        proxy_busy_buffers_size 128k;
+      }
+
+      # SPA fallback.
+      location / {
+        try_files $uri $uri/ /index.html;
+      }
+    }

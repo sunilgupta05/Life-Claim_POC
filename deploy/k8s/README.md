@@ -189,7 +189,7 @@ kubectl delete -k deploy/k8s/overlays/local          # remove everything
 | Portal not opening from other PCs | `Get-ScheduledTask LifeClaim-Portal`, read `C:\ProgramData\LifeClaim\expose.log`, check firewall rule "Life Claim portal 8088" |
 | minikube `NotReady`, `cni plugin not initialized` | `minikube delete --all --purge`, then start with `--cni=bridge` |
 | PVC `Pending` | No ReadWriteMany storage class → see checklist item 5 |
-| Login succeeds in the backend log (`POST /api/auth/keycloak/token 200`) but the browser says "Login failed" | Portal opened over plain HTTP on a LAN address — the Secure session cookie is dropped. Use `https://192.168.60.62:8443` |
+| Login succeeds in the backend log (`POST /api/auth/keycloak/token 200`) but the browser says "Login failed" | (1) A proxy in front of the backend returned `502 upstream sent too big header`: the login response carries the Keycloak tokens as cookies (several KB). The edge, frontend nginx and Ingress here use 64k header buffers — keep that if you add another proxy. (2) Portal opened over plain HTTP on a LAN address — the Secure session cookie is dropped. Use `https://192.168.60.62:8443` |
 | Login returns "Secure transport required" | Production overlay reached over plain HTTP — use the HTTPS Ingress, or the `local` overlay |
 | minikube: `apiserver process never appeared` / `bootstrap-kubelet.conf: no such file` | Stale old cluster: `minikube delete`, then `minikube start --driver=docker --memory=4096 --cpus=2` |
 | Docker Desktop: `detected cgroup v1` | Add `kernelCommandLine = cgroup_no_v1=all` under `[wsl2]` in `%USERPROFILE%\.wslconfig`, `wsl --shutdown`, restart Docker Desktop |

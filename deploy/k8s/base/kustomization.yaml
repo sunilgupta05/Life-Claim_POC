@@ -15,5 +15,6 @@ resources:
   - rules.yaml
   - backend.yaml
   - worker.yaml
+  - frontend-nginx.yaml
   - frontend.yaml
   - networkpolicy.yaml

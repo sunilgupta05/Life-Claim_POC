@@ -26,6 +26,13 @@ data:
       proxy_set_header X-Real-IP         $remote_addr;
       proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
       proxy_set_header X-Forwarded-Proto https;   # backend trusts one proxy hop (TRUST_PROXY)
+      # A successful login returns the Keycloak access + refresh tokens as
+      # cookies (several KB of Set-Cookie). nginx's default 4-8k header buffer
+      # turns that into "502 upstream sent too big header" and the UI shows
+      # "Login failed" although the backend answered 200.
+      proxy_buffer_size       64k;
+      proxy_buffers           16 64k;
+      proxy_busy_buffers_size 128k;
 
       # API and uploaded logos go straight to the backend.
       location /api/      { proxy_pass http://backend:3010; }

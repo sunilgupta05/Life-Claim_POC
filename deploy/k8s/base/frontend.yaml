@@ -57,10 +57,13 @@ spec:
               drop: [ALL]
               add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
           volumeMounts:
+            - { name: conf, mountPath: /etc/nginx/conf.d, readOnly: true }
             - { name: cache, mountPath: /var/cache/nginx }
             - { name: run, mountPath: /run }
             - { name: tmp, mountPath: /tmp }
       volumes:
+        - name: conf
+          configMap: { name: frontend-nginx }
         - { name: cache, emptyDir: {} }
         - { name: run, emptyDir: {} }
         - { name: tmp, emptyDir: {} }

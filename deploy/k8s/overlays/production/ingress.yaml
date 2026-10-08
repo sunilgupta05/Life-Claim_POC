@@ -15,6 +15,7 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "12m"      # backend accepts 10 MB uploads
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "64k"    # login Set-Cookie (Keycloak tokens) is several KB
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
 spec:
