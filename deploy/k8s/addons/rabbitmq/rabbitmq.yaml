@@ -53,8 +53,15 @@ spec:
                 secretKeyRef: { name: life-claim-secrets, key: RABBITMQ_PASS, optional: true }
             - name: RABBITMQ_NODENAME
               value: rabbit@localhost
+            # containerd gives containers an open-files limit of ~1e9; Erlang sizes
+            # its port table from it and the broker hangs during boot (the AMQP
+            # listener never opens). Cap it at 65536 for the server and CLI tools.
+            - name: ERL_MAX_PORTS
+              value: "65536"
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
-              value: "-rabbit loopback_users []"
+              value: "+Q 65536 -rabbit loopback_users []"
+            - name: RABBITMQ_CTL_ERL_ARGS
+              value: "+Q 65536"
           # TCP checks on the AMQP port: the listener only opens once the broker
           # accepts connections. (`rabbitmq-diagnostics` boots a separate Erlang
           # VM per call and timed out on the busy server.)
@@ -74,7 +81,7 @@ spec:
             failureThreshold: 4
           resources:
             requests: { cpu: 100m, memory: 256Mi }
-            limits: { cpu: "1", memory: 768Mi }
+            limits: { cpu: "1", memory: 1Gi }
           securityContext:
             allowPrivilegeEscalation: false
           volumeMounts:
