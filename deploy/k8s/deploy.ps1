@@ -100,8 +100,13 @@ Step "Apply manifests ($Overlay)"
 kubectl apply -k $Overlay
 Check 'kubectl apply -k'
 
-Step "Roll pods if .env changed"
-$hash = (Get-FileHash $secretEnv -Algorithm SHA256).Hash.Substring(0, 16).ToLower()
+Step "Roll pods if .env or the ConfigMap changed"
+# Pods read both at start-up only, so fold both into one hash on the pod template.
+$configMap = kubectl -n $Namespace get configmap life-claim-config -o jsonpath='{.data}'
+Check 'read configmap'
+$sha = [Security.Cryptography.SHA256]::Create()
+$bytes = [Text.Encoding]::UTF8.GetBytes([IO.File]::ReadAllText($secretEnv) + "`n" + ($configMap -join "`n"))
+$hash = (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 16)
 if ($secretEnv -ne $EnvFile) { Remove-Item $secretEnv -ErrorAction SilentlyContinue }
 $patchFile = Join-Path $env:TEMP 'life-claim-env-hash.json'
 "{`"spec`":{`"template`":{`"metadata`":{`"annotations`":{`"life-claim/env-hash`":`"$hash`"}}}}}" |

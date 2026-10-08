@@ -55,19 +55,22 @@ spec:
               value: rabbit@localhost
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "-rabbit loopback_users []"
+          # TCP checks on the AMQP port: the listener only opens once the broker
+          # accepts connections. (`rabbitmq-diagnostics` boots a separate Erlang
+          # VM per call and timed out on the busy server.)
           startupProbe:
-            exec: { command: ["rabbitmq-diagnostics", "-q", "ping"] }
+            tcpSocket: { port: amqp }
             periodSeconds: 10
-            timeoutSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 30
           readinessProbe:
-            exec: { command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"] }
-            periodSeconds: 15
-            timeoutSeconds: 10
+            tcpSocket: { port: amqp }
+            periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
-            exec: { command: ["rabbitmq-diagnostics", "-q", "ping"] }
+            tcpSocket: { port: amqp }
             periodSeconds: 30
-            timeoutSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 4
           resources:
             requests: { cpu: 100m, memory: 256Mi }

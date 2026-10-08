@@ -43,8 +43,9 @@ kubectl -n "$NS" create secret generic life-claim-secrets --from-env-file="$SECR
 step "Apply manifests ($OVERLAY)"
 kubectl apply -k "$OVERLAY"
 
-step "Roll pods if .env changed"
-HASH="$(sha256sum "$SECRET_ENV" | cut -c1-16)"
+step "Roll pods if .env or the ConfigMap changed"
+# Pods read both at start-up only, so fold both into one hash on the pod template.
+HASH="$( { cat "$SECRET_ENV"; kubectl -n "$NS" get configmap life-claim-config -o jsonpath='{.data}'; } | sha256sum | cut -c1-16)"
 [[ "$SECRET_ENV" != "$ENV_FILE" ]] && rm -f "$SECRET_ENV"
 for d in backend worker rules; do
   kubectl -n "$NS" patch deployment "$d" --type merge \
